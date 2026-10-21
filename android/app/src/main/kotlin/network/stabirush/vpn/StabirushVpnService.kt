@@ -629,11 +629,13 @@ class StabirushVpnService : VpnService() {
                             val dIp = "${tunReadBuf[16].toUByte()}.${tunReadBuf[17].toUByte()}.${tunReadBuf[18].toUByte()}.${tunReadBuf[19].toUByte()}"
                             Log.d("Stabirush", "UL #$tx: $sIp -> $dIp ($n bytes)")
                         }
+                        val frame = ByteArray(2 + n)
+                        frame[0] = ((n ushr 8) and 0xFF).toByte()
+                        frame[1] = (n and 0xFF).toByte()
+                        System.arraycopy(tunReadBuf, 0, frame, 2, n)
                         try {
                             synchronized(writeLock) {
-                                rawOut.write((n ushr 8) and 0xFF)
-                                rawOut.write(n and 0xFF)
-                                rawOut.write(tunReadBuf, 0, n)
+                                rawOut.write(frame)
                                 rawOut.flush()
                             }
                         } catch (e: Exception) {

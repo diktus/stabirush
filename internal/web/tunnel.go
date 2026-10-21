@@ -68,17 +68,14 @@ func (c *tunClientSession) sendFrame(payload []byte) error {
 
 	if c.conn != nil {
 		_ = c.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-		var hdr [2]byte
-		binary.BigEndian.PutUint16(hdr[:], uint16(len(payload)))
-		if _, err := c.conn.Write(hdr[:]); err != nil {
-			return err
-		}
+		frame := make([]byte, 2+len(payload))
+		binary.BigEndian.PutUint16(frame[0:2], uint16(len(payload)))
 		if len(payload) > 0 {
-			if _, err := c.conn.Write(payload); err != nil {
-				return err
-			}
+			copy(frame[2:], payload)
 			atomic.AddInt64(&c.txBytes, int64(len(payload)))
 		}
+		_, err := c.conn.Write(frame)
+		return err
 	}
 	return nil
 }
