@@ -2,6 +2,7 @@ package network.stabirush.vpn
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -23,7 +24,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -33,10 +33,7 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
-import java.net.InetSocketAddress
-import java.net.Socket
 import java.net.URL
-import java.net.URLEncoder
 
 class MainActivity : Activity() {
 
@@ -59,32 +56,38 @@ class MainActivity : Activity() {
     private val wifiRules = mutableListOf<WifiRule>()
     private val activeSubnetsCidr = mutableListOf<String>()
 
-    // UI Elements (Cloudflare Zero Trust / NetBird Style)
-    private lateinit var statusBadgeText: TextView
-    private lateinit var statusBadgeBg: GradientDrawable
+    // Drawer Views
+    private lateinit var sidebarOverlay: FrameLayout
+    private lateinit var sidebarDrawer: LinearLayout
+    private lateinit var drawerPeerText: TextView
+    private lateinit var drawerIpText: TextView
 
-    private lateinit var toggleCard: LinearLayout
-    private lateinit var toggleCardBg: GradientDrawable
-    private lateinit var toggleCircle: FrameLayout
-    private lateinit var toggleCircleBg: GradientDrawable
-    private lateinit var toggleIcon: TextView
-    private lateinit var toggleTitle: TextView
-    private lateinit var toggleSubtitle: TextView
-    private lateinit var toggleIpBadge: TextView
-    private lateinit var toggleTrafficStats: TextView
-    private lateinit var toggleTransportBadge: TextView
+    // Top Mode Selector (Split vs Secure)
+    private lateinit var btnModeSplit: Button
+    private lateinit var btnModeSecure: Button
 
-    private lateinit var cardSplitMode: LinearLayout
-    private lateinit var cardSecureMode: LinearLayout
-    private lateinit var radioSplit: TextView
-    private lateinit var radioSecure: TextView
+    // Center Hero Power Button
+    private lateinit var heroPowerRing: FrameLayout
+    private lateinit var heroPowerCircle: FrameLayout
+    private lateinit var heroPowerIcon: TextView
+    private lateinit var heroStatusTitle: TextView
+    private lateinit var heroStatusSubtitle: TextView
 
+    // Bento Grid Cards
+    private lateinit var tvBentoTrafficVal: TextView
+    private lateinit var tvBentoTrafficSub: TextView
+    private lateinit var tvBentoLatencyVal: TextView
+    private lateinit var tvBentoLatencyDot: View
+    private lateinit var tvBentoProtocolVal: TextView
+    private lateinit var tvBentoProtocolSub: TextView
+    private lateinit var tvBentoIpVal: TextView
+    private lateinit var tvBentoIpSub: TextView
+
+    // Transport Bar
     private lateinit var btnTransUdp: Button
     private lateinit var btnTransQuic: Button
     private lateinit var btnTransTcp: Button
     private lateinit var btnTransAuto: Button
-
-    private lateinit var wifiInfoText: TextView
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -114,9 +117,8 @@ class MainActivity : Activity() {
         }
 
         loadModelsFromPrefs()
-        buildCloudflareStyleUI()
+        buildCyberModernUI()
 
-        // Sync from server on start
         syncFromServer(showToastMsg = false)
         requestLocationForSsidAndEvaluate()
     }
@@ -165,13 +167,6 @@ class MainActivity : Activity() {
         } else if (action == "set_mode") {
             val m = intent.getStringExtra("mode") ?: "split"
             setRoutingMode(m, restartIfConnected = true)
-        } else if (action == "benchmark") {
-            runCctvBenchmark { res ->
-                try {
-                    val f = java.io.File(filesDir, "bench_result.txt")
-                    f.writeText(res)
-                } catch (ignored: Exception) {}
-            }
         }
     }
 
@@ -196,7 +191,6 @@ class MainActivity : Activity() {
         selectedPubKey = prefs.getString("selectedPubKey", "") ?: ""
         selectedPeerName = prefs.getString("selectedPeerName", "Android Device") ?: "Android Device"
 
-        // Load Named Subnets
         namedSubnets.clear()
         val nsJson = prefs.getString("namedSubnetsJson", null)
         if (nsJson != null) {
@@ -211,7 +205,6 @@ class MainActivity : Activity() {
             namedSubnets.addAll(NamedSubnet.defaultList())
         }
 
-        // Active split subnets
         activeSubnetsCidr.clear()
         val activeSubsStr = prefs.getString("activeSubnets", null)
         if (activeSubsStr != null) {
@@ -221,7 +214,6 @@ class MainActivity : Activity() {
             activeSubnetsCidr.addAll(namedSubnets.map { it.cidr })
         }
 
-        // Wi-Fi Rules
         wifiRules.clear()
         val wrJson = prefs.getString("wifiRulesJson", null)
         if (wrJson != null) {
@@ -234,94 +226,98 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun buildCloudflareStyleUI() {
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#080D1A")) // Sleek deep dark navy background
+    private fun buildCyberModernUI() {
+        val rootFrame = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#0A0E17"))
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // 1. Sleek App Bar (Brand + Zero Trust Badge + ⚙️ Settings Button)
+        // ================= MAIN SCREEN CONTAINER =================
+        val mainScreen = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+
+        // 1. App Bar Header (Hamburger ☰ + Brand + Sync ↻)
         val appBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(20), dp(18), dp(20), dp(14))
-            setBackgroundColor(Color.parseColor("#0B132B"))
+            setPadding(dp(18), dp(16), dp(18), dp(14))
+            setBackgroundColor(Color.parseColor("#0A0E17"))
         }
 
-        val brandCol = LinearLayout(this).apply {
+        // Hamburger Menu Button (3 Horizontal Lines)
+        val btnHamburger = FrameLayout(this).apply {
+            val d = dp(38)
+            layoutParams = LinearLayout.LayoutParams(d, d)
+            background = roundedRect(Color.parseColor("#111827"), dp(10), Color.parseColor("#1F2937"))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { openDrawer() }
+        }
+        val linesContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+        for (i in 0..2) {
+            val line = View(this).apply {
+                background = roundedRect(Color.parseColor("#38BDF8"), dp(2), Color.TRANSPARENT)
+                val lp = LinearLayout.LayoutParams(dp(18), dp(2))
+                if (i > 0) lp.topMargin = dp(4)
+                layoutParams = lp
+            }
+            linesContainer.addView(line)
+        }
+        btnHamburger.addView(linesContainer)
+        appBar.addView(btnHamburger)
+
+        // Title Center
+        val titleBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-
-        val brandRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-
         val brandTitle = TextView(this).apply {
             text = "STABIRUSH"
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.08f
+            letterSpacing = 0.12f
         }
-        brandRow.addView(brandTitle)
-
-        // Status Badge (like Cloudflare Zero Trust / NetBird)
-        val badgeFrame = FrameLayout(this).apply {
-            setPadding(dp(8), dp(2), dp(8), dp(2))
-            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            lp.leftMargin = dp(10)
-            layoutParams = lp
-        }
-        statusBadgeBg = roundedRect(Color.parseColor("#1E293B"), dp(12), Color.parseColor("#334155"))
-        badgeFrame.background = statusBadgeBg
-
-        statusBadgeText = TextView(this).apply {
-            text = "ZERO TRUST"
-            setTextColor(Color.parseColor("#94A3B8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f)
+        val brandSub = TextView(this).apply {
+            text = "CYBER-MINIMALIST GUARD"
+            setTextColor(Color.parseColor("#0EA5E9"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.06f
+            letterSpacing = 0.15f
         }
-        badgeFrame.addView(statusBadgeText)
-        brandRow.addView(badgeFrame)
+        titleBox.addView(brandTitle)
+        titleBox.addView(brandSub)
+        appBar.addView(titleBox)
 
-        brandCol.addView(brandRow)
-
-        val brandSubtitle = TextView(this).apply {
-            val curUser = prefs.getString("username", "beni") ?: "beni"
-            text = "👤 $curUser · Mesh: $assignedIp"
-            setTextColor(Color.parseColor("#38BDF8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            setPadding(0, dp(2), 0, 0)
+        // Sync Refresh Button (Right)
+        val btnSync = FrameLayout(this).apply {
+            val d = dp(38)
+            layoutParams = LinearLayout.LayoutParams(d, d)
+            background = roundedRect(Color.parseColor("#111827"), dp(10), Color.parseColor("#1F2937"))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { syncFromServer(showToastMsg = true) }
         }
-        brandCol.addView(brandSubtitle)
-        appBar.addView(brandCol)
-
-        // ⚙️ Settings Icon Button
-        val btnSettings = FrameLayout(this).apply {
-            val size = dp(42)
-            layoutParams = LinearLayout.LayoutParams(size, size)
-            background = roundedRect(Color.parseColor("#1C2541"), dp(21), Color.parseColor("#334155"))
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
-            }
-        }
-        val gearIcon = TextView(this).apply {
-            text = "⚙"
+        val syncIcon = TextView(this).apply {
+            text = "↻"
             setTextColor(Color.parseColor("#38BDF8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
             gravity = Gravity.CENTER
             layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
-        btnSettings.addView(gearIcon)
-        appBar.addView(btnSettings)
+        btnSync.addView(syncIcon)
+        appBar.addView(btnSync)
 
-        root.addView(appBar)
+        mainScreen.addView(appBar)
 
-        // 2. Scrollable Body
+        // 2. Scrollable Content Body
         val scrollView = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
             isFillViewport = true
@@ -330,175 +326,162 @@ class MainActivity : Activity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(20), dp(16), dp(20), dp(20))
+            setPadding(dp(20), dp(10), dp(20), dp(24))
         }
 
-        // Spacer
-        content.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(10)))
-
-        // 3. Central Hero Connect Card (Cloudflare Zero Trust / NetBird Big Toggle)
-        toggleCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(32), dp(24), dp(28))
-            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            layoutParams = lp
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                toggleVpnConnection()
-            }
+        // ================= TOP: COMPACT SEGMENTED ROUTING MODE =================
+        // (Swapped to top as requested, without verbose description!)
+        val modeContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            background = roundedRect(Color.parseColor("#111827"), dp(14), Color.parseColor("#1F2937"))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44))
         }
-        toggleCardBg = roundedRect(Color.parseColor("#0F172A"), dp(24), Color.parseColor("#1E293B"))
-        toggleCard.background = toggleCardBg
 
-        // Big Circular Power Button in Center
-        toggleCircle = FrameLayout(this).apply {
-            val d = dp(116)
-            layoutParams = LinearLayout.LayoutParams(d, d)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                toggleVpnConnection()
-            }
-        }
-        toggleCircleBg = roundedRect(Color.parseColor("#1E293B"), dp(58), Color.parseColor("#334155"))
-        toggleCircle.background = toggleCircleBg
-
-        toggleIcon = TextView(this).apply {
-            text = "⏻"
-            setTextColor(Color.parseColor("#94A3B8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 44f)
-            gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                toggleVpnConnection()
-            }
-        }
-        toggleCircle.addView(toggleIcon)
-        toggleCard.addView(toggleCircle)
-
-        // Status Title
-        toggleTitle = TextView(this).apply {
-            text = "DISCONNECTED"
-            setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
+        btnModeSplit = Button(this).apply {
+            text = "🌐 Split Tunnel"
+            setAllCaps(false)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.05f
-            setPadding(0, dp(18), 0, 0)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { marginEnd = dp(4) }
+            setOnClickListener { setRoutingMode("split", restartIfConnected = true) }
         }
-        toggleCard.addView(toggleTitle)
 
-        toggleSubtitle = TextView(this).apply {
-            text = "Ketuk untuk terhubung ke jaringan Stabirush"
-            setTextColor(Color.parseColor("#94A3B8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
-            gravity = Gravity.CENTER
-            setPadding(0, dp(4), 0, dp(10))
-        }
-        toggleCard.addView(toggleSubtitle)
-
-        // Assigned IP / Latency Pill
-        toggleIpBadge = TextView(this).apply {
-            text = "IP: $assignedIp · Server: $serverHost"
-            setTextColor(Color.parseColor("#38BDF8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-            typeface = Typeface.MONOSPACE
-            setPadding(dp(12), dp(5), dp(12), dp(5))
-            background = roundedRect(Color.parseColor("#132A4A"), dp(12), Color.TRANSPARENT)
-        }
-        toggleCard.addView(toggleIpBadge)
-
-        // Real-time Traffic Stats Pill (Tx / Rx)
-        toggleTrafficStats = TextView(this).apply {
-            text = "↑ 0 B  ·  ↓ 0 B"
-            setTextColor(Color.parseColor("#E2E8F0"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            typeface = Typeface.MONOSPACE
-            gravity = Gravity.CENTER
-            setPadding(0, dp(6), 0, dp(2))
-            visibility = View.GONE
-        }
-        toggleCard.addView(toggleTrafficStats)
-
-        // Transport Mode Indicator Pill
-        toggleTransportBadge = TextView(this).apply {
-            text = "⚡ Transport: Auto"
-            setTextColor(Color.parseColor("#38BDF8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+        btnModeSecure = Button(this).apply {
+            text = "🔒 Secure 0.0.0.0/0"
+            setAllCaps(false)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setPadding(0, dp(2), 0, dp(2))
-            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            setOnClickListener { setRoutingMode("secure", restartIfConnected = true) }
         }
-        toggleCard.addView(toggleTransportBadge)
 
-        content.addView(toggleCard)
+        modeContainer.addView(btnModeSplit)
+        modeContainer.addView(btnModeSecure)
+        content.addView(modeContainer)
 
         // Spacer
         content.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(24)))
 
-        // 4. Mode Selection Header
-        val modeHeaderRow = LinearLayout(this).apply {
+        // ================= CENTER: HERO POWER BUTTON =================
+        heroPowerRing = FrameLayout(this).apply {
+            val d = dp(144)
+            layoutParams = LinearLayout.LayoutParams(d, d)
+            background = roundedRect(Color.parseColor("#0C1527"), dp(72), Color.parseColor("#1E293B"))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { toggleVpnConnection() }
+        }
+
+        heroPowerCircle = FrameLayout(this).apply {
+            val d = dp(112)
+            layoutParams = FrameLayout.LayoutParams(d, d, Gravity.CENTER)
+            background = roundedRect(Color.parseColor("#1E293B"), dp(56), Color.parseColor("#334155"))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { toggleVpnConnection() }
+        }
+
+        heroPowerIcon = TextView(this).apply {
+            text = "⏻"
+            setTextColor(Color.parseColor("#94A3B8"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 48f)
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { toggleVpnConnection() }
+        }
+        heroPowerCircle.addView(heroPowerIcon)
+        heroPowerRing.addView(heroPowerCircle)
+        content.addView(heroPowerRing)
+
+        // Status Title & Subtitle
+        heroStatusTitle = TextView(this).apply {
+            text = "DISCONNECTED"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.08f
+            setPadding(0, dp(18), 0, 0)
+        }
+        content.addView(heroStatusTitle)
+
+        heroStatusSubtitle = TextView(this).apply {
+            text = "Ketuk untuk mengamankan koneksi Anda"
+            setTextColor(Color.parseColor("#94A3B8"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, dp(22))
+        }
+        content.addView(heroStatusSubtitle)
+
+        // ================= BENTO GRID LIVE METRIC CARDS (2x2) =================
+        val bentoCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        // Row 1: Traffic + Latency
+        val bentoRow1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        // Card 1: Traffic (Tx/Rx)
+        val cardTraffic = createBentoCard("⬇ RX / ⬆ TX (LIVE)", "0 B / 0 B", "0 paket").also {
+            bentoRow1.addView(it.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
+            tvBentoTrafficVal = it.second
+            tvBentoTrafficSub = it.third
+        }
+
+        // Card 2: Latency
+        val cardLatency = createBentoCardWithDot("⚡ LATENSI PING", "-- ms", "Gateway: 10.10.0.1").also {
+            bentoRow1.addView(it.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            tvBentoLatencyVal = it.second
+            tvBentoLatencyDot = it.third
+        }
+        bentoCol.addView(bentoRow1)
+
+        bentoCol.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(10)))
+
+        // Row 2: Protocol + Virtual IP
+        val bentoRow2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        // Card 3: Transport Protocol
+        val cardProtocol = createBentoCard("🛡️ PROTOKOL", "Auto", "Noise_IK / QUIC").also {
+            bentoRow2.addView(it.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
+            tvBentoProtocolVal = it.second
+            tvBentoProtocolSub = it.third
+        }
+
+        // Card 4: Virtual IP
+        val cardIp = createBentoCard("🆔 VIRTUAL IP", assignedIp, "Split Active").also {
+            bentoRow2.addView(it.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            tvBentoIpVal = it.second
+            tvBentoIpSub = it.third
+        }
+        bentoCol.addView(bentoRow2)
+
+        content.addView(bentoCol)
+
+        // Spacer
+        content.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(22)))
+
+        // ================= BOTTOM: TRANSPORT PROTOCOL BAR =================
+        val transHeaderRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(4), 0, dp(4), dp(8))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
-        val modeLabel = TextView(this).apply {
-            text = "PILIHAN MODE ROUTING"
-            setTextColor(Color.parseColor("#64748B"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-            typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.08f
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        val modeHint = TextView(this).apply {
-            text = "Pilih salah satu"
-            setTextColor(Color.parseColor("#475569"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-        }
-        modeHeaderRow.addView(modeLabel)
-        modeHeaderRow.addView(modeHint)
-        content.addView(modeHeaderRow)
-
-        // Card Mode A: Split Tunnel
-        cardSplitMode = createModeCard(
-            title = "Split Tunnel (Rekomendasi)",
-            description = "Hanya rute subnet kantor & private yang melewati VPN. Trafik internet umum langsung keluar via Wi-Fi/Seluler tanpa hambatan.",
-            badge = "Subnet Saja"
-        ) {
-            setRoutingMode("split", restartIfConnected = true)
-        }
-        radioSplit = cardSplitMode.findViewWithTag("radio_indicator")
-        content.addView(cardSplitMode)
-
-        content.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(10)))
-
-        // Card Mode B: Secure Full Tunnel
-        cardSecureMode = createModeCard(
-            title = "🔒 Secure Mode (Full Tunnel)",
-            description = "Semua trafik internet (0.0.0.0/0) dan query DNS dienkripsi penuh melalui gateway Stabirush WireGuard.",
-            badge = "0.0.0.0/0"
-        ) {
-            setRoutingMode("secure", restartIfConnected = true)
-        }
-        radioSecure = cardSecureMode.findViewWithTag("radio_indicator")
-        content.addView(cardSecureMode)
-
-        // 4.5 Transport Protocol Header & Buttons
-        val transHeaderRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(4), dp(16), dp(4), dp(8))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        }
         val transLabel = TextView(this).apply {
-            text = "PROTOKOL TRANSPORT"
+            text = "MODA TRANSPORTASI"
             setTextColor(Color.parseColor("#64748B"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.08f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -508,9 +491,9 @@ class MainActivity : Activity() {
 
         val transGrid = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 0, 0, dp(4))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(38))
         }
+
         btnTransUdp = Button(this).apply {
             text = "⚡ WG"
             setAllCaps(false)
@@ -539,138 +522,282 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.22f)
             setOnClickListener { setTransportMode("auto", restartIfConnected = true) }
         }
+
         transGrid.addView(btnTransUdp)
         transGrid.addView(btnTransQuic)
         transGrid.addView(btnTransTcp)
         transGrid.addView(btnTransAuto)
         content.addView(transGrid)
 
-        // Spacer
-        content.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(16)))
-
-        // 5. Active Wi-Fi & Quick Info Box (Bottom)
-        val infoBox = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(10), dp(14), dp(10))
-            background = roundedRect(Color.parseColor("#0F172A"), dp(12), Color.parseColor("#1E293B"))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        }
-        wifiInfoText = TextView(this).apply {
-            text = "📶 Wi-Fi: Mendeteksi..."
-            setTextColor(Color.parseColor("#94A3B8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            typeface = Typeface.MONOSPACE
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        val btnBench = Button(this).apply {
-            text = "⚡ Tes CCTV"
-            setAllCaps(false)
-            setTextColor(Color.parseColor("#10B981"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            background = roundedRect(Color.parseColor("#0B2925"), dp(6), Color.parseColor("#10B981"))
-            layoutParams = LinearLayout.LayoutParams(dp(86), dp(32)).apply { marginEnd = dp(6) }
-            setOnClickListener {
-                runCctvBenchmark { res ->
-                    try {
-                        val f = java.io.File(filesDir, "bench_result.txt")
-                        f.writeText(res)
-                    } catch (ignored: Exception) {}
-                }
-            }
-        }
-        val btnOpenSettings = Button(this).apply {
-            text = "Aturan ⚙"
-            setAllCaps(false)
-            setTextColor(Color.parseColor("#38BDF8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            background = roundedRect(Color.parseColor("#1E293B"), dp(6), Color.parseColor("#38BDF8"))
-            layoutParams = LinearLayout.LayoutParams(dp(76), dp(32))
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
-            }
-        }
-        infoBox.addView(wifiInfoText)
-        infoBox.addView(btnBench)
-        infoBox.addView(btnOpenSettings)
-        content.addView(infoBox)
-
         scrollView.addView(content)
-        root.addView(scrollView)
+        mainScreen.addView(scrollView)
+        rootFrame.addView(mainScreen)
 
-        setContentView(root)
+        // ================= SIDEBAR SCRIM OVERLAY =================
+        sidebarOverlay = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#B3000000"))
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { closeDrawer() }
+        }
+        rootFrame.addView(sidebarOverlay)
+
+        // ================= SIDEBAR DRAWER (CYBER GLASS) =================
+        sidebarDrawer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#0D1322"))
+            val lp = FrameLayout.LayoutParams(dp(290), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START)
+            layoutParams = lp
+            visibility = View.GONE
+            elevation = dp(16).toFloat()
+            isClickable = true
+            isFocusable = true
+        }
+
+        // Drawer Header Card
+        val dHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(28), dp(20), dp(20))
+            background = roundedRect(Color.parseColor("#111A2E"), 0, Color.TRANSPARENT)
+        }
+        val dBadge = TextView(this).apply {
+            text = "STABIRUSH SECURE"
+            setTextColor(Color.parseColor("#38BDF8"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.12f
+        }
+        drawerPeerText = TextView(this).apply {
+            text = selectedPeerName
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(4), 0, 0)
+        }
+        drawerIpText = TextView(this).apply {
+            text = "IP: $assignedIp"
+            setTextColor(Color.parseColor("#10B981"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.MONOSPACE
+            setPadding(0, dp(2), 0, 0)
+        }
+        dHeader.addView(dBadge)
+        dHeader.addView(drawerPeerText)
+        dHeader.addView(drawerIpText)
+        sidebarDrawer.addView(dHeader)
+
+        // Drawer Menu Items List
+        val dMenuScroll = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+            isFillViewport = true
+        }
+        val dMenu = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(16), dp(12), dp(16))
+        }
+
+        addDrawerItem(dMenu, "📶", "Aturan Wi-Fi Otomatis", "Auto-switch profil Wi-Fi") {
+            closeDrawer()
+            startActivity(Intent(this, WifiRulesActivity::class.java))
+        }
+        addDrawerItem(dMenu, "🌐", "Kelola Subnet Private", "Daftar CIDR split tunnel") {
+            closeDrawer()
+            startActivity(Intent(this, SubnetManagerActivity::class.java))
+        }
+        addDrawerItem(dMenu, "📹", "Diagnostik & Tes CCTV", "Uji RTSP & throughput") {
+            closeDrawer()
+            startActivity(Intent(this, CctvTesterActivity::class.java))
+        }
+        addDrawerItem(dMenu, "🛡️", "Server & Akun", "Status server & token") {
+            closeDrawer()
+            startActivity(Intent(this, AccountActivity::class.java))
+        }
+
+        dMenuScroll.addView(dMenu)
+        sidebarDrawer.addView(dMenuScroll)
+
+        // Drawer Footer (Logout)
+        val dFooter = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(20))
+            background = roundedRect(Color.parseColor("#0B101C"), 0, Color.TRANSPARENT)
+        }
+        val btnLogoutDrawer = Button(this).apply {
+            text = "🚪  Keluar (Logout)"
+            setAllCaps(false)
+            setTextColor(Color.parseColor("#EF4444"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            background = roundedRect(Color.parseColor("#271216"), dp(8), Color.parseColor("#EF4444"))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40))
+            setOnClickListener {
+                closeDrawer()
+                confirmLogout()
+            }
+        }
+        dFooter.addView(btnLogoutDrawer)
+        sidebarDrawer.addView(dFooter)
+
+        rootFrame.addView(sidebarDrawer)
+
+        setContentView(rootFrame)
     }
 
-    private fun createModeCard(
-        title: String,
-        description: String,
-        badge: String,
-        onClick: () -> Unit
-    ): LinearLayout {
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+    private fun openDrawer() {
+        sidebarOverlay.visibility = View.VISIBLE
+        sidebarDrawer.visibility = View.VISIBLE
+        sidebarDrawer.translationX = -dp(290).toFloat()
+        sidebarDrawer.animate().translationX(0f).setDuration(220).start()
+    }
+
+    private fun closeDrawer() {
+        sidebarDrawer.animate().translationX(-dp(290).toFloat()).setDuration(180).withEndAction {
+            sidebarDrawer.visibility = View.GONE
+            sidebarOverlay.visibility = View.GONE
+        }.start()
+    }
+
+    private fun addDrawerItem(parent: LinearLayout, icon: String, title: String, sub: String, onClick: () -> Unit) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = roundedRect(Color.parseColor("#111A2E"), dp(10), Color.TRANSPARENT)
+            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = dp(8)
+            }
+            layoutParams = lp
             isClickable = true
             isFocusable = true
             setOnClickListener { onClick() }
         }
 
+        val ic = TextView(this).apply {
+            text = icon
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            setPadding(0, 0, dp(12), 0)
+        }
+        row.addView(ic)
+
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val tTv = TextView(this).apply {
+            text = title
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val sTv = TextView(this).apply {
+            text = sub
+            setTextColor(Color.parseColor("#94A3B8"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+        }
+        col.addView(tTv)
+        col.addView(sTv)
+        row.addView(col)
+
+        val arrow = TextView(this).apply {
+            text = "›"
+            setTextColor(Color.parseColor("#64748B"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+        }
+        row.addView(arrow)
+
+        parent.addView(row)
+    }
+
+    private fun createBentoCard(header: String, defVal: String, defSub: String): Triple<LinearLayout, TextView, TextView> {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = roundedRect(Color.parseColor("#111827"), dp(14), Color.parseColor("#1F2937"))
+        }
+        val hTv = TextView(this).apply {
+            text = header
+            setTextColor(Color.parseColor("#64748B"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.08f
+        }
+        val vTv = TextView(this).apply {
+            text = defVal
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(4), 0, 0)
+        }
+        val sTv = TextView(this).apply {
+            text = defSub
+            setTextColor(Color.parseColor("#94A3B8"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            typeface = Typeface.MONOSPACE
+            setPadding(0, dp(2), 0, 0)
+        }
+        card.addView(hTv)
+        card.addView(vTv)
+        card.addView(sTv)
+        return Triple(card, vTv, sTv)
+    }
+
+    private fun createBentoCardWithDot(header: String, defVal: String, defSub: String): Triple<LinearLayout, TextView, View> {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = roundedRect(Color.parseColor("#111827"), dp(14), Color.parseColor("#1F2937"))
+        }
         val topRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-
-        val radio = TextView(this).apply {
-            tag = "radio_indicator"
-            text = "○"
+        val hTv = TextView(this).apply {
+            text = header
             setTextColor(Color.parseColor("#64748B"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-            setPadding(0, 0, dp(10), 0)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.08f
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        topRow.addView(radio)
+        val dot = View(this).apply {
+            val d = dp(8)
+            layoutParams = LinearLayout.LayoutParams(d, d)
+            background = roundedRect(Color.parseColor("#64748B"), dp(4), Color.TRANSPARENT)
+        }
+        topRow.addView(hTv)
+        topRow.addView(dot)
+        card.addView(topRow)
 
-        val titleTv = TextView(this).apply {
-            text = title
+        val vTv = TextView(this).apply {
+            text = defVal
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = Typeface.DEFAULT_BOLD
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setPadding(0, dp(4), 0, 0)
         }
-        topRow.addView(titleTv)
-
-        val badgeTv = TextView(this).apply {
-            text = badge
-            setTextColor(Color.parseColor("#38BDF8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
-            typeface = Typeface.MONOSPACE
-            setPadding(dp(8), dp(3), dp(8), dp(3))
-            background = roundedRect(Color.parseColor("#1E293B"), dp(6), Color.TRANSPARENT)
-        }
-        topRow.addView(badgeTv)
-        card.addView(topRow)
-
-        val descTv = TextView(this).apply {
-            text = description
+        val sTv = TextView(this).apply {
+            text = defSub
             setTextColor(Color.parseColor("#94A3B8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-            setPadding(dp(28), dp(4), 0, 0)
-            setLineSpacing(0f, 1.15f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            typeface = Typeface.MONOSPACE
+            setPadding(0, dp(2), 0, 0)
         }
-        card.addView(descTv)
-
-        return card
+        card.addView(vTv)
+        card.addView(sTv)
+        return Triple(card, vTv, dot)
     }
 
     private fun setRoutingMode(mode: String, restartIfConnected: Boolean) {
+        if (routingMode == mode) return
         routingMode = mode
         prefs.edit().putString("routingMode", mode).apply()
         refreshUiState()
 
         if (restartIfConnected && StabirushVpnService.isRunning) {
             launchVpnService()
-            val label = if (mode == "secure") "🔒 Secure Full Tunnel (0.0.0.0/0)" else "Split Tunnel"
-            Toast.makeText(this, "Berpindah ke $label", Toast.LENGTH_SHORT).show()
+            val label = if (mode.equals("secure", ignoreCase = true)) "🔒 Secure Full Tunnel (0.0.0.0/0)" else "Split Tunnel"
+            Toast.makeText(this, "Mode diubah ke $label", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -697,7 +824,7 @@ class MainActivity : Activity() {
             btn.background = roundedRect(Color.parseColor("#0284C7"), dp(6), Color.parseColor("#38BDF8"))
         } else {
             btn.setTextColor(Color.parseColor("#94A3B8"))
-            btn.background = roundedRect(Color.parseColor("#1E293B"), dp(6), Color.TRANSPARENT)
+            btn.background = roundedRect(Color.parseColor("#111827"), dp(6), Color.TRANSPARENT)
         }
     }
 
@@ -725,193 +852,156 @@ class MainActivity : Activity() {
     }
 
     private fun launchVpnService() {
-        val srv = serverHost.ifBlank { "168.110.193.226" }
-        val ip = assignedIp.ifBlank { "10.10.0.3" }
-        val subnetsCsv = if (activeSubnetsCidr.isEmpty()) "10.10.0.0/24,192.168.101.0/24,10.0.0.0/24" else activeSubnetsCidr.joinToString(",")
-        val subnetNames = getSelectedSubnetNamesSummary()
-
-        val startIntent = Intent(this, StabirushVpnService::class.java).apply {
+        val srvIntent = Intent(this, StabirushVpnService::class.java).apply {
             action = StabirushVpnService.ACTION_CONNECT
-            putExtra("serverHost", srv)
-            putExtra("assignedIp", ip)
             putExtra("routingMode", routingMode)
             putExtra("transportMode", transportMode)
-            putExtra("activeSubnets", subnetsCsv)
-            putExtra("activeSubnetNames", subnetNames)
+            putExtra("assignedIp", assignedIp)
+            putExtra("serverHost", serverHost)
+            putExtra("selectedPubKey", selectedPubKey)
+            putExtra("activeSubnets", activeSubnetsCidr.joinToString(","))
         }
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(startIntent)
+            startForegroundService(srvIntent)
         } else {
-            startService(startIntent)
+            startService(srvIntent)
         }
-
-        mainHandler.postDelayed({ refreshUiState() }, 400)
     }
 
     private fun getSelectedSubnetNamesSummary(): String {
-        if (activeSubnetsCidr.isEmpty()) return "Semua Subnet Private"
-        val matchedNames = mutableListOf<String>()
-        for (c in activeSubnetsCidr) {
-            val found = namedSubnets.find { it.cidr.equals(c, ignoreCase = true) }
-            matchedNames.add(found?.name ?: c)
+        val selNames = mutableListOf<String>()
+        namedSubnets.forEach { ns ->
+            if (activeSubnetsCidr.contains(ns.cidr)) {
+                selNames.add(ns.name)
+            }
         }
-        return matchedNames.joinToString(", ")
+        return if (selNames.isEmpty()) "Hanya IP Sendiri" else selNames.joinToString(", ")
     }
 
     private fun formatBytes(b: Long): String {
         if (b < 1024) return "$b B"
         val kb = b / 1024.0
-        if (kb < 1024) return String.format(java.util.Locale.US, "%.1f KB", kb)
+        if (kb < 1024) return String.format("%.1f KB", kb)
         val mb = kb / 1024.0
-        return String.format(java.util.Locale.US, "%.2f MB", mb)
+        if (mb < 1024) return String.format("%.1f MB", mb)
+        val gb = mb / 1024.0
+        return String.format("%.2f GB", gb)
     }
 
     private fun refreshUiState() {
         val running = StabirushVpnService.isRunning
-        val isSecure = routingMode.equals("secure", ignoreCase = true)
-        val isVerified = StabirushVpnService.isVerified
-        val rxBytes = StabirushVpnService.rxBytes.get()
-        val txBytes = StabirushVpnService.txBytes.get()
-        val rxPackets = StabirushVpnService.rxPackets.get()
-        val txPackets = StabirushVpnService.txPackets.get()
+        val isConnected = running && (StabirushVpnService.isVerified || StabirushVpnService.rxPackets.get() > 0)
         val isFallback = StabirushVpnService.isFallbackActive
         val activeTrans = StabirushVpnService.activeTransport
+        val txBytes = StabirushVpnService.txBytes.get()
+        val rxBytes = StabirushVpnService.rxBytes.get()
+        val txPackets = StabirushVpnService.txPackets.get()
+        val rxPackets = StabirushVpnService.rxPackets.get()
 
-        // Connected once service is running and session is verified
-        val isConnected = running && isVerified
+        val isSecure = routingMode.equals("secure", ignoreCase = true)
 
-        // 1. Status Badge
-        if (isConnected) {
-            statusBadgeText.text = if (isSecure) "SECURE MESH" else "SPLIT ACTIVE"
-            statusBadgeText.setTextColor(Color.parseColor("#10B981"))
-            statusBadgeBg.setColor(Color.parseColor("#064E3B"))
-            statusBadgeBg.setStroke(dp(1), Color.parseColor("#10B981"))
-        } else if (running) {
-            statusBadgeText.text = if (isFallback) "FALLBACK TCP" else "VERIFIKASI TRAFIK"
-            statusBadgeText.setTextColor(Color.parseColor("#F59E0B"))
-            statusBadgeBg.setColor(Color.parseColor("#451A03"))
-            statusBadgeBg.setStroke(dp(1), Color.parseColor("#F59E0B"))
-        } else {
-            statusBadgeText.text = "ZERO TRUST"
-            statusBadgeText.setTextColor(Color.parseColor("#94A3B8"))
-            statusBadgeBg.setColor(Color.parseColor("#1E293B"))
-            statusBadgeBg.setStroke(dp(1), Color.parseColor("#334155"))
-        }
-
-        // 2. Central Hero Toggle Card
-        if (isConnected) {
-            toggleCardBg.setColor(Color.parseColor("#062B28"))
-            toggleCardBg.setStroke(dp(2), Color.parseColor("#10B981"))
-
-            toggleCircleBg.setColor(Color.parseColor("#10B981"))
-            toggleCircleBg.setStroke(dp(3), Color.parseColor("#34D399"))
-            toggleIcon.text = "✓"
-            toggleIcon.setTextColor(Color.WHITE)
-
-            toggleTitle.text = if (isSecure) "SECURE TUNNEL AKTIF" else "SPLIT TUNNEL AKTIF"
-            toggleTitle.setTextColor(Color.parseColor("#10B981"))
-
-            val pingStr = if (StabirushVpnService.lastPingMs >= 0) "${StabirushVpnService.lastPingMs} ms" else "<1 ms"
-            val modeStr = if (isSecure) "Full Tunnel 0.0.0.0/0" else getSelectedSubnetNamesSummary()
-            toggleSubtitle.text = "Koneksi terenkripsi 2-Arah · $modeStr"
-
-            toggleIpBadge.text = "⚡ $assignedIp · gateway: 10.10.0.1 · $pingStr"
-            toggleIpBadge.setTextColor(Color.parseColor("#10B981"))
-            (toggleIpBadge.background as? GradientDrawable)?.setColor(Color.parseColor("#0F3D37"))
-
-            toggleTrafficStats.visibility = View.VISIBLE
-            toggleTrafficStats.text = "↑ ${formatBytes(txBytes)} ($txPackets pkts)  ·  ↓ ${formatBytes(rxBytes)} ($rxPackets pkts)"
-
-            toggleTransportBadge.visibility = View.VISIBLE
-            if (activeTrans == "quic") {
-                toggleTransportBadge.text = "🚀 Protocol: QUIC / UDP Datagram (Port 51821)"
-                toggleTransportBadge.setTextColor(Color.parseColor("#38BDF8"))
-            } else if (isFallback || activeTrans.contains("tcp")) {
-                toggleTransportBadge.text = "🛡️ Protocol: TCP/TLS 443 (Fallback Aktif)"
-                toggleTransportBadge.setTextColor(Color.parseColor("#F59E0B"))
-            } else {
-                toggleTransportBadge.text = "⚡ Protocol: WireGuard (UDP:51820 Noise_IK)"
-                toggleTransportBadge.setTextColor(Color.parseColor("#10B981"))
-            }
-        } else if (running) {
-            toggleCardBg.setColor(Color.parseColor("#1C1917"))
-            toggleCardBg.setStroke(dp(2), Color.parseColor("#F59E0B"))
-
-            toggleCircleBg.setColor(Color.parseColor("#D97706"))
-            toggleCircleBg.setStroke(dp(3), Color.parseColor("#FBBF24"))
-            toggleIcon.text = "⏳"
-            toggleIcon.setTextColor(Color.WHITE)
-
-            toggleTitle.text = "MEMVERIFIKASI TRAFIK..."
-            toggleTitle.setTextColor(Color.parseColor("#F59E0B"))
-
-            if (isFallback) {
-                toggleSubtitle.text = "⚠️ UDP RX nol (terblokir ISP). Beralih ke TCP/TLS 443..."
-            } else {
-                toggleSubtitle.text = "Menguji kirim & terima data (Send & Receive)..."
-            }
-
-            toggleIpBadge.text = "⚡ $assignedIp · Menghubungkan ke $serverHost"
-            toggleIpBadge.setTextColor(Color.parseColor("#F59E0B"))
-            (toggleIpBadge.background as? GradientDrawable)?.setColor(Color.parseColor("#292524"))
-
-            toggleTrafficStats.visibility = View.VISIBLE
-            toggleTrafficStats.text = "↑ ${formatBytes(txBytes)} ($txPackets pkts)  ·  ↓ ${formatBytes(rxBytes)} (Menunggu respon...)"
-
-            toggleTransportBadge.visibility = View.VISIBLE
-            toggleTransportBadge.text = when {
-                activeTrans == "quic" -> "Menghubungkan via QUIC (UDP 51821)..."
-                isFallback -> "Mengalihkan ke TCP 443..."
-                else -> "Menguji port UDP..."
-            }
-            toggleTransportBadge.setTextColor(Color.parseColor("#F59E0B"))
-        } else {
-            toggleCardBg.setColor(Color.parseColor("#0F172A"))
-            toggleCardBg.setStroke(dp(1), Color.parseColor("#1E293B"))
-
-            toggleCircleBg.setColor(Color.parseColor("#1E293B"))
-            toggleCircleBg.setStroke(dp(2), Color.parseColor("#334155"))
-            toggleIcon.text = "⏻"
-            toggleIcon.setTextColor(Color.parseColor("#94A3B8"))
-
-            toggleTitle.text = "DISCONNECTED"
-            toggleTitle.setTextColor(Color.WHITE)
-            toggleSubtitle.text = "Ketuk untuk terhubung ke jaringan Stabirush WireGuard"
-
-            toggleIpBadge.text = "Perangkat: $selectedPeerName ($assignedIp)"
-            toggleIpBadge.setTextColor(Color.parseColor("#38BDF8"))
-            (toggleIpBadge.background as? GradientDrawable)?.setColor(Color.parseColor("#132A4A"))
-
-            toggleTrafficStats.visibility = View.GONE
-            toggleTransportBadge.visibility = View.GONE
-        }
-
-        // 3. Mode Cards Radio Styling
+        // 1. Top Segmented Mode Buttons
         if (isSecure) {
-            radioSecure.text = "●"
-            radioSecure.setTextColor(Color.parseColor("#38BDF8"))
-            cardSecureMode.background = roundedRect(Color.parseColor("#0C2340"), dp(16), Color.parseColor("#38BDF8"))
-
-            radioSplit.text = "○"
-            radioSplit.setTextColor(Color.parseColor("#64748B"))
-            cardSplitMode.background = roundedRect(Color.parseColor("#0F172A"), dp(16), Color.parseColor("#1E293B"))
+            btnModeSecure.setTextColor(Color.WHITE)
+            btnModeSecure.background = roundedRect(Color.parseColor("#10B981"), dp(10), Color.parseColor("#34D399"))
+            btnModeSplit.setTextColor(Color.parseColor("#94A3B8"))
+            btnModeSplit.background = roundedRect(Color.parseColor("#111827"), dp(10), Color.TRANSPARENT)
         } else {
-            radioSplit.text = "●"
-            radioSplit.setTextColor(Color.parseColor("#10B981"))
-            cardSplitMode.background = roundedRect(Color.parseColor("#0B2925"), dp(16), Color.parseColor("#10B981"))
-
-            radioSecure.text = "○"
-            radioSecure.setTextColor(Color.parseColor("#64748B"))
-            cardSecureMode.background = roundedRect(Color.parseColor("#0F172A"), dp(16), Color.parseColor("#1E293B"))
+            btnModeSplit.setTextColor(Color.WHITE)
+            btnModeSplit.background = roundedRect(Color.parseColor("#0284C7"), dp(10), Color.parseColor("#38BDF8"))
+            btnModeSecure.setTextColor(Color.parseColor("#94A3B8"))
+            btnModeSecure.background = roundedRect(Color.parseColor("#111827"), dp(10), Color.TRANSPARENT)
         }
 
-        // 4. Transport Buttons Styling
+        // 2. Central Hero Power Button
+        if (isConnected) {
+            // Emerald Connected Glow
+            heroPowerRing.background = roundedRect(Color.parseColor("#062B28"), dp(72), Color.parseColor("#10B981"))
+            heroPowerCircle.background = roundedRect(Color.parseColor("#10B981"), dp(56), Color.parseColor("#34D399"))
+            heroPowerIcon.text = "✓"
+            heroPowerIcon.setTextColor(Color.WHITE)
+
+            heroStatusTitle.text = if (isSecure) "SECURE TUNNEL AKTIF" else "SPLIT TUNNEL AKTIF"
+            heroStatusTitle.setTextColor(Color.parseColor("#10B981"))
+            heroStatusSubtitle.text = "Koneksi terenkripsi 2-Arah · Gateway 10.10.0.1"
+
+            // Bento Cards Live Info
+            tvBentoTrafficVal.text = "⬇ ${formatBytes(rxBytes)} / ⬆ ${formatBytes(txBytes)}"
+            tvBentoTrafficSub.text = "$rxPackets rx / $txPackets tx pkts"
+
+            val p = StabirushVpnService.lastPingMs
+            tvBentoLatencyVal.text = if (p >= 0) "$p ms" else "<1 ms"
+            (tvBentoLatencyDot.background as? GradientDrawable)?.setColor(
+                if (p in 0..60) Color.parseColor("#10B981")
+                else if (p in 61..160) Color.parseColor("#F59E0B")
+                else Color.parseColor("#10B981")
+            )
+
+            tvBentoProtocolVal.text = when {
+                activeTrans == "quic" -> "🚀 QUIC"
+                isFallback || activeTrans.contains("tcp") -> "🛡️ TCP:443"
+                else -> "⚡ WireGuard"
+            }
+            tvBentoProtocolSub.text = if (activeTrans == "quic") "UDP 51821" else if (activeTrans.contains("tcp")) "TLS Tunnel" else "UDP 51820"
+
+            tvBentoIpVal.text = assignedIp
+            tvBentoIpSub.text = if (isSecure) "Full Tunnel 0.0.0.0/0" else getSelectedSubnetNamesSummary()
+
+        } else if (running) {
+            // Amber Connecting State
+            heroPowerRing.background = roundedRect(Color.parseColor("#1C1917"), dp(72), Color.parseColor("#F59E0B"))
+            heroPowerCircle.background = roundedRect(Color.parseColor("#D97706"), dp(56), Color.parseColor("#FBBF24"))
+            heroPowerIcon.text = "⏳"
+            heroPowerIcon.setTextColor(Color.WHITE)
+
+            heroStatusTitle.text = "MENGHUBUNGKAN..."
+            heroStatusTitle.setTextColor(Color.parseColor("#F59E0B"))
+            heroStatusSubtitle.text = when {
+                activeTrans == "quic" -> "Menghubungkan via QUIC Fast-UDP..."
+                isFallback -> "Mengalihkan ke TCP/TLS 443..."
+                else -> "Menguji handshake WireGuard..."
+            }
+
+            tvBentoTrafficVal.text = "Mengirim probe..."
+            tvBentoTrafficSub.text = "Menunggu verifikasi 2-arah"
+            tvBentoLatencyVal.text = "Menguji..."
+            (tvBentoLatencyDot.background as? GradientDrawable)?.setColor(Color.parseColor("#F59E0B"))
+            tvBentoProtocolVal.text = activeTrans.uppercase()
+            tvBentoProtocolSub.text = "Handshake..."
+            tvBentoIpVal.text = assignedIp
+            tvBentoIpSub.text = "Menghubungkan..."
+
+        } else {
+            // Disconnected Idle State (Cyber Slate / Cyan Accent)
+            heroPowerRing.background = roundedRect(Color.parseColor("#0C1527"), dp(72), Color.parseColor("#1E293B"))
+            heroPowerCircle.background = roundedRect(Color.parseColor("#1E293B"), dp(56), Color.parseColor("#334155"))
+            heroPowerIcon.text = "⏻"
+            heroPowerIcon.setTextColor(Color.parseColor("#94A3B8"))
+
+            heroStatusTitle.text = "DISCONNECTED"
+            heroStatusTitle.setTextColor(Color.WHITE)
+            heroStatusSubtitle.text = "Ketuk tombol untuk mengamankan koneksi"
+
+            tvBentoTrafficVal.text = "0 B / 0 B"
+            tvBentoTrafficSub.text = "Trafik belum berjalan"
+            tvBentoLatencyVal.text = "-- ms"
+            (tvBentoLatencyDot.background as? GradientDrawable)?.setColor(Color.parseColor("#64748B"))
+            tvBentoProtocolVal.text = "Auto"
+            tvBentoProtocolSub.text = "Standby"
+            tvBentoIpVal.text = assignedIp
+            tvBentoIpSub.text = if (isSecure) "Secure (Full)" else "Split (${namedSubnets.size} subnets)"
+        }
+
+        // 3. Transport Buttons Styling
         val curTrans = prefs.getString("transportMode", "auto") ?: "auto"
         styleTransportButton(btnTransAuto, curTrans == "auto")
         styleTransportButton(btnTransUdp, curTrans == "udp" || curTrans == "wireguard")
         styleTransportButton(btnTransQuic, curTrans == "quic")
         styleTransportButton(btnTransTcp, curTrans == "wstunnel" || curTrans == "tcp")
+
+        // 4. Update Drawer Info
+        drawerPeerText.text = selectedPeerName
+        drawerIpText.text = "IP: $assignedIp"
     }
 
     private fun requestLocationForSsidAndEvaluate() {
@@ -934,16 +1024,14 @@ class MainActivity : Activity() {
     private fun getCurrentWifiSsid(): String {
         try {
             val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            if (wm != null) {
-                val info = wm.connectionInfo
-                if (info != null && info.ssid != null) {
-                    var raw = info.ssid
-                    if (raw.startsWith("\"") && raw.endsWith("\"") && raw.length >= 2) {
-                        raw = raw.substring(1, raw.length - 1)
-                    }
-                    if (!raw.equals("<unknown ssid>", ignoreCase = true)) {
-                        return raw
-                    }
+            val info = wm?.connectionInfo
+            if (info != null && info.ssid != null) {
+                var raw = info.ssid
+                if (raw.startsWith("\"") && raw.endsWith("\"") && raw.length >= 2) {
+                    raw = raw.substring(1, raw.length - 1)
+                }
+                if (!raw.equals("<unknown ssid>", ignoreCase = true)) {
+                    return raw
                 }
             }
         } catch (ignored: Exception) {}
@@ -952,13 +1040,8 @@ class MainActivity : Activity() {
 
     private fun evaluateWifiSsidRules(applySwitch: Boolean) {
         val ssid = getCurrentWifiSsid()
-        val displaySsid = if (ssid.isEmpty()) "Seluler / Wi-Fi Lain" else ssid
-        wifiInfoText.text = "📶 Wi-Fi: $displaySsid"
-
         val autoSwitchEnabled = prefs.getBoolean("autoWifiSwitchEnabled", false)
-        if (!autoSwitchEnabled || !applySwitch) {
-            return
-        }
+        if (!autoSwitchEnabled || !applySwitch) return
 
         var matched: WifiRule? = null
         for (r in wifiRules) {
@@ -967,294 +1050,103 @@ class MainActivity : Activity() {
                 break
             }
         }
-        if (matched == null) {
-            for (r in wifiRules) {
-                if (r.ssid.trim() == "*") {
-                    matched = r
-                    break
+
+        if (matched != null) {
+            val targetMode = matched.profileMode.lowercase()
+            if (targetMode == "disconnect") {
+                if (StabirushVpnService.isRunning) {
+                    toggleVpnConnection()
+                    Toast.makeText(this, "Wi-Fi '$ssid': VPN Dinonaktifkan otomatis", Toast.LENGTH_SHORT).show()
+                }
+            } else if (targetMode == "secure" || targetMode == "split") {
+                if (routingMode != targetMode) {
+                    setRoutingMode(targetMode, restartIfConnected = true)
+                    Toast.makeText(this, "Wi-Fi '$ssid': Beralih ke mode $targetMode", Toast.LENGTH_SHORT).show()
                 }
             }
         }
+    }
 
-        if (matched != null) {
-            val targetAction = matched.profileMode
-            val targetSubnets = matched.subnets
-            if (targetAction == "disconnect") {
+    private fun matchesAnyPattern(ssid: String, rawList: String): Boolean {
+        val parts = rawList.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        for (p in parts) {
+            val regexStr = "^" + java.util.regex.Pattern.quote(p).replace("*", "\\E.*\\Q").replace("?", "\\E.\\Q") + "$"
+            if (ssid.matches(Regex(regexStr, RegexOption.IGNORE_CASE))) return true
+        }
+        return false
+    }
+
+    private fun syncFromServer(showToastMsg: Boolean) {
+        val token = prefs.getString("authToken", "") ?: ""
+        if (token.isEmpty()) return
+
+        Thread {
+            try {
+                val url = URL("https://$serverHost/api/android/sync")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn.setRequestProperty("Authorization", "Bearer $token")
+
+                if (conn.responseCode == 200) {
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(body)
+                    if (json.optBoolean("success", false)) {
+                        val devObj = json.optJSONObject("device")
+                        if (devObj != null) {
+                            val ip = devObj.optString("allocatedIP", assignedIp)
+                            val name = devObj.optString("name", selectedPeerName)
+                            prefs.edit().putString("assignedIp", ip).putString("selectedPeerName", name).apply()
+                            mainHandler.post {
+                                assignedIp = ip
+                                selectedPeerName = name
+                                refreshUiState()
+                                if (showToastMsg) Toast.makeText(this@MainActivity, "✓ Berhasil disinkronkan dengan server", Toast.LENGTH_SHORT).show()
+                            }
+                            return@Thread
+                        }
+                    }
+                }
+                if (showToastMsg) {
+                    mainHandler.post { Toast.makeText(this@MainActivity, "Gagal sinkronisasi (HTTP ${conn.responseCode})", Toast.LENGTH_SHORT).show() }
+                }
+            } catch (e: Exception) {
+                if (showToastMsg) {
+                    mainHandler.post { Toast.makeText(this@MainActivity, "Sync offline: ${e.message}", Toast.LENGTH_SHORT).show() }
+                }
+            }
+        }.start()
+    }
+
+    private fun confirmLogout() {
+        AlertDialog.Builder(this)
+            .setTitle("Konfirmasi Logout")
+            .setMessage("Apakah Anda yakin ingin keluar dari akun Stabirush?")
+            .setPositiveButton("Logout") { _, _ ->
                 if (StabirushVpnService.isRunning) {
                     val stopIntent = Intent(this, StabirushVpnService::class.java).apply {
                         action = StabirushVpnService.ACTION_DISCONNECT
                     }
                     startService(stopIntent)
                 }
-            } else if (targetAction == "secure") {
-                setRoutingMode("secure", restartIfConnected = true)
-            } else if (targetAction == "split") {
-                if (targetSubnets.isNotEmpty()) {
-                    activeSubnetsCidr.clear()
-                    activeSubnetsCidr.addAll(targetSubnets)
-                    prefs.edit().putString("activeSubnets", activeSubnetsCidr.joinToString(",")).apply()
+                prefs.edit().remove("authToken").apply()
+                val intent = Intent(this, LoginActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 }
-                setRoutingMode("split", restartIfConnected = true)
+                startActivity(intent)
+                finish()
             }
-        }
+            .setNegativeButton("Batal", null)
+            .show()
     }
 
-    private fun matchesAnyPattern(ssid: String, rawList: String): Boolean {
-        if (rawList.isBlank()) return false
-        val parts = rawList.split(",")
-        for (p in parts) {
-            val pat = p.trim()
-            if (pat.isEmpty()) continue
-            if (pat == "*") return true
-            if (pat.endsWith("*")) {
-                val prefix = pat.substring(0, pat.length - 1).lowercase()
-                if (ssid.lowercase().startsWith(prefix)) return true
-            } else if (ssid.equals(pat, ignoreCase = true)) {
-                return true
-            }
-        }
-        return false
-    }
+    private fun dp(v: Int): Int = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
 
-    private fun syncFromServer(showToastMsg: Boolean) {
-        val srv = serverHost.ifBlank { "168.110.193.226" }
-        val ip = assignedIp.ifBlank { "10.10.0.3" }
-        val token = prefs.getString("authToken", "") ?: ""
-
-        Thread {
-            var conn: HttpURLConnection? = null
-            try {
-                val hosts = if (srv == "10.10.0.1") arrayOf("10.10.0.1", "168.110.193.226") else arrayOf(srv, "10.10.0.1")
-                var ok = false
-                for (h in hosts) {
-                    try {
-                        val cleanH = h.removePrefix("https://").removePrefix("http://").trimEnd('/')
-                        val proto = if (cleanH.matches(Regex("^[0-9.]+$"))) "http" else "https"
-                        val path = "$proto://$cleanH/api/android/sync?key=" +
-                                URLEncoder.encode(selectedPubKey, "UTF-8") +
-                                "&ip=" + URLEncoder.encode(ip, "UTF-8")
-                        conn = URL(path).openConnection() as HttpURLConnection
-                        if (token.isNotEmpty()) {
-                            conn.setRequestProperty("X-WG-Token", token)
-                        }
-                        conn.connectTimeout = 3000
-                        conn.readTimeout = 3000
-                        if (conn.responseCode == 200) {
-                            ok = true
-                            break
-                        } else if (conn.responseCode == 401) {
-                            prefs.edit().remove("authToken").apply()
-                            mainHandler.post {
-                                Toast.makeText(this, "Sesi login berakhir. Silakan login kembali.", Toast.LENGTH_SHORT).show()
-                                val i = Intent(this, LoginActivity::class.java).apply {
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                }
-                                startActivity(i)
-                                finish()
-                            }
-                            return@Thread
-                        }
-                        conn.disconnect()
-                    } catch (ignored: Exception) {
-                        conn?.disconnect()
-                    }
-                }
-                if (!ok || conn == null) throw Exception("Server tidak dapat dijangkau")
-
-                val br = BufferedReader(InputStreamReader(conn.inputStream))
-                val sb = StringBuilder()
-                var line: String?
-                while (br.readLine().also { line = it } != null) sb.append(line)
-                br.close()
-
-                val root = JSONObject(sb.toString())
-                val ver = root.optLong("configVersion", 0L)
-
-                val ed = prefs.edit()
-                ed.putLong("configVersion", ver)
-
-                val srvPubKey = root.optString("serverPublicKey", "")
-                if (srvPubKey.isNotEmpty()) {
-                    ed.putString("serverPublicKey", srvPubKey)
-                }
-
-                val srvEndpoint = root.optString("serverEndpoint", "")
-                if (srvEndpoint.isNotEmpty()) {
-                    ed.putString("serverEndpoint", srvEndpoint)
-                }
-
-                val nsArr = root.optJSONArray("namedSubnets")
-                if (nsArr != null && nsArr.length() > 0) {
-                    ed.putString("namedSubnetsJson", nsArr.toString())
-                }
-
-                val activeDev = root.optJSONObject("activeDevice")
-                if (activeDev != null) {
-                    selectedPubKey = activeDev.optString("publicKey", selectedPubKey)
-                    selectedPeerName = activeDev.optString("name", selectedPeerName)
-                    val devIp = activeDev.optString("allocatedIP", ip)
-                    val devPriv = activeDev.optString("privateKey", "")
-                    if (devPriv.isNotEmpty()) {
-                        ed.putString("clientPrivateKey", devPriv)
-                    }
-                    ed.putString("selectedPubKey", selectedPubKey)
-                    ed.putString("selectedPeerName", selectedPeerName)
-                    ed.putString("assignedIp", devIp)
-
-                    val wrArr = activeDev.optJSONArray("wifiRules")
-                    if (wrArr != null && wrArr.length() > 0) {
-                        ed.putString("wifiRulesJson", wrArr.toString())
-                    }
-                }
-                ed.apply()
-
-                mainHandler.post {
-                    loadModelsFromPrefs()
-                    evaluateWifiSsidRules(applySwitch = false)
-                    refreshUiState()
-                    if (showToastMsg) {
-                        Toast.makeText(this@MainActivity, "Berhasil sinkronisasi pengaturan dari Web UI!", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (e: Exception) {
-                if (showToastMsg) {
-                    mainHandler.post {
-                        Toast.makeText(this@MainActivity, "Gagal sync dari server: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } finally {
-                conn?.disconnect()
-            }
-        }.start()
-    }
-
-    private fun runCctvBenchmark(onComplete: (String) -> Unit) {
-        val curTrans = transportMode
-        val curMode = routingMode
-        Toast.makeText(this, "Menguji CCTV 10.0.0.154 ($curTrans)...", Toast.LENGTH_SHORT).show()
-        Thread {
-            try {
-                val targetHost = "10.0.0.154"
-                val targetPort = 8090
-                val targetUrl = "http://10.0.0.154:8090/"
-
-                android.util.Log.d("StabirushBench", "START_BENCHMARK: trans=$curTrans mode=$curMode target=$targetHost:$targetPort")
-
-                val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-                val vpnNet = cm?.allNetworks?.firstOrNull { net ->
-                    val caps = cm.getNetworkCapabilities(net)
-                    caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true
-                }
-                android.util.Log.d("StabirushBench", "Detected active VPN network: $vpnNet")
-
-                // 1. TCP Handshake RTT Test (5 sampel)
-                val tcpLatencies = mutableListOf<Long>()
-                for (i in 1..5) {
-                    val t0 = System.nanoTime()
-                    try {
-                        val s = Socket()
-                        vpnNet?.bindSocket(s)
-                        s.connect(InetSocketAddress(targetHost, targetPort), 3000)
-                        val t1 = System.nanoTime()
-                        s.close()
-                        val ms = (t1 - t0) / 1_000_000L
-                        tcpLatencies.add(ms)
-                    } catch (e: Exception) {
-                        android.util.Log.w("StabirushBench", "Handshake #$i error: ${e.message}")
-                    }
-                    Thread.sleep(80)
-                }
-
-                val tcpMin = tcpLatencies.minOrNull() ?: 0L
-                val tcpAvg = if (tcpLatencies.isNotEmpty()) tcpLatencies.average() else 0.0
-                val tcpMax = tcpLatencies.maxOrNull() ?: 0L
-
-                // 2. HTTP Request & Throughput Download Test (5 iterasi payload ~119KB)
-                val ttfbList = mutableListOf<Long>()
-                val downloadSpeedsKbps = mutableListOf<Double>()
-                var totalBytesReceived = 0L
-                val durations = mutableListOf<Long>()
-
-                for (i in 1..5) {
-                    val tStart = System.nanoTime()
-                    try {
-                        val url = URL(targetUrl)
-                        val conn = (if (vpnNet != null) vpnNet.openConnection(url) else url.openConnection()) as HttpURLConnection
-                        conn.connectTimeout = 4000
-                        conn.readTimeout = 4000
-                        conn.setRequestProperty("User-Agent", "StabirushBench/1.0")
-                        conn.setRequestProperty("Connection", "close")
-
-                        val code = conn.responseCode
-                        val tHeaders = System.nanoTime()
-                        val ttfb = (tHeaders - tStart) / 1_000_000L
-                        ttfbList.add(ttfb)
-
-                        val stream = conn.inputStream
-                        val buf = ByteArray(16384)
-                        var bytesRead = 0L
-                        while (true) {
-                            val n = stream.read(buf)
-                            if (n == -1) break
-                            bytesRead += n
-                        }
-                        stream.close()
-                        conn.disconnect()
-
-                        val tEnd = System.nanoTime()
-                        val totalMs = (tEnd - tStart) / 1_000_000L
-                        durations.add(totalMs)
-                        totalBytesReceived += bytesRead
-
-                        val dlSec = (tEnd - tHeaders) / 1_000_000_000.0
-                        val speedKbps = if (dlSec > 0) (bytesRead * 8.0) / (dlSec * 1000.0) else 0.0
-                        downloadSpeedsKbps.add(speedKbps)
-                        android.util.Log.d("StabirushBench", "HTTP #$i code=$code bytes=$bytesRead ttfb=${ttfb}ms total=${totalMs}ms speed=${speedKbps.toInt()}kbps")
-                    } catch (e: Exception) {
-                        android.util.Log.w("StabirushBench", "HTTP #$i error: ${e.message}")
-                    }
-                    Thread.sleep(100)
-                }
-
-                val ttfbMin = ttfbList.minOrNull() ?: 0L
-                val ttfbAvg = ttfbList.average()
-                val ttfbMax = ttfbList.maxOrNull() ?: 0L
-                val avgDuration = durations.average()
-                val avgSpeedMbps = (downloadSpeedsKbps.average()) / 1000.0
-                val payloadKb = (totalBytesReceived / 5.0) / 1024.0
-
-                val summary = String.format(
-                    java.util.Locale.US,
-                    "RESULT|trans=%s|mode=%s|tcp_min=%d|tcp_avg=%.1f|tcp_max=%d|ttfb_min=%d|ttfb_avg=%.1f|ttfb_max=%d|payload_kb=%.1f|speed_mbps=%.2f|duration_ms=%.1f",
-                    curTrans, curMode, tcpMin, tcpAvg, tcpMax, ttfbMin, ttfbAvg, ttfbMax, payloadKb, avgSpeedMbps, avgDuration
-                )
-
-                android.util.Log.d("StabirushBench", summary)
-                mainHandler.post {
-                    Toast.makeText(this, "Benchmark CCTV ($curTrans):\nTCP: ${tcpAvg.toInt()}ms | Speed: ${"%.1f".format(avgSpeedMbps)} Mbps", Toast.LENGTH_LONG).show()
-                    onComplete(summary)
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("StabirushBench", "Benchmark error: ${e.message}", e)
-                mainHandler.post {
-                    Toast.makeText(this, "Tes CCTV Gagal: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            }
-        }.start()
-    }
-
-    private fun dp(v: Int): Int {
-        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), resources.displayMetrics).toInt()
-    }
-
-    private fun roundedRect(bgColor: Int, radiusPx: Int, strokeColor: Int): GradientDrawable {
-        return GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            cornerRadius = radiusPx.toFloat()
-            setColor(bgColor)
-            if (strokeColor != Color.TRANSPARENT) {
-                setStroke(dp(1), strokeColor)
-            }
+    private fun roundedRect(bgColor: Int, radiusPx: Int, strokeColor: Int): GradientDrawable = GradientDrawable().apply {
+        setColor(bgColor)
+        cornerRadius = radiusPx.toFloat()
+        if (strokeColor != Color.TRANSPARENT) {
+            setStroke(dp(1), strokeColor)
         }
     }
 }
