@@ -182,7 +182,7 @@ class StabirushVpnService : VpnService() {
                     val builder = Builder()
                     val sLabel = if (routingMode == "secure") "Secure 0.0.0.0/0 (TCP)" else "Split: $activeSubnetNames (TCP)"
                     builder.setSession("Stabirush · $sLabel")
-                    builder.setMtu(1280)
+                    builder.setMtu(1420)
                     builder.addAddress(effectiveIp, 32)
 
                     if (routingMode.equals("secure", ignoreCase = true) || routingMode.equals("full", ignoreCase = true)) {
@@ -232,7 +232,7 @@ class StabirushVpnService : VpnService() {
 
                         val builder = Builder()
                         builder.setSession("Stabirush · " + if (routingMode == "secure") "Secure 0.0.0.0/0 (TCP Fallback)" else "Split: $activeSubnetNames")
-                        builder.setMtu(1280)
+                        builder.setMtu(1420)
                         builder.addAddress(effectiveIp, 32)
 
                         if (routingMode.equals("secure", ignoreCase = true) || routingMode.equals("full", ignoreCase = true)) {
@@ -578,8 +578,12 @@ class StabirushVpnService : VpnService() {
                                 val dIp = "${pkt[16].toUByte()}.${pkt[17].toUByte()}.${pkt[18].toUByte()}.${pkt[19].toUByte()}"
                                 Log.d("Stabirush", "DL #$rx: $sIp -> $dIp ($len bytes)")
                             }
-                            synchronized(tunOut) {
-                                tunOut.write(pkt, 0, len)
+                            try {
+                                synchronized(tunOut) {
+                                    tunOut.write(pkt, 0, len)
+                                }
+                            } catch (we: Exception) {
+                                Log.w("Stabirush", "tunOut write packet warning: ${we.message}")
                             }
                         }
                     } catch (e: Exception) {

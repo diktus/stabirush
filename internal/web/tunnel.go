@@ -129,6 +129,7 @@ func initAndroidTunBridge(mgr ...*auth.Manager) *androidTunBridge {
 			"sysctl -w net.ipv4.conf.stabirush0.rp_filter=0 >/dev/null 2>&1 || true",
 			"sysctl -w net.ipv4.conf.wg0.rp_filter=0 >/dev/null 2>&1 || true",
 			"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || iptables -t mangle -I FORWARD 1 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu",
+			"iptables -t mangle -C OUTPUT -p tcp --tcp-flags SYN,RST SYN -d 10.10.0.0/24 -j TCPMSS --set-mss 1240 2>/dev/null || iptables -t mangle -I OUTPUT 1 -p tcp --tcp-flags SYN,RST SYN -d 10.10.0.0/24 -j TCPMSS --set-mss 1240",
 			"iptables -C FORWARD -i stabirush0 -j ACCEPT 2>/dev/null || iptables -I FORWARD 1 -i stabirush0 -j ACCEPT",
 			"iptables -C FORWARD -o stabirush0 -j ACCEPT 2>/dev/null || iptables -I FORWARD 1 -o stabirush0 -j ACCEPT",
 			"iptables -t nat -C POSTROUTING -s 10.10.0.0/24 -o wg0 -j MASQUERADE 2>/dev/null || iptables -t nat -I POSTROUTING 1 -s 10.10.0.0/24 -o wg0 -j MASQUERADE",
