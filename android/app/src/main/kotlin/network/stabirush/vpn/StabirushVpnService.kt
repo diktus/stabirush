@@ -292,7 +292,8 @@ class StabirushVpnService : VpnService() {
         broadcastStatus("Mengaktifkan WireGuard Engine...")
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val effectivePrivKey = prefs.getString("clientPrivateKey", "") ?: ""
+        val privKey = prefs.getString("clientPrivateKey", "") ?: ""
+        val effectivePrivKey = if (privKey.isNotEmpty()) privKey else "IEyVQmA+ijVcRkF2Ba3LY2d3/eu4HvrcBYD2ZfXz8UU="
         val serverPubKey = prefs.getString("serverPublicKey", "") ?: ""
         val effectiveServerPubKey = if (serverPubKey.isNotEmpty()) serverPubKey else "J6gLYFFjvZ8WKyvej80RRTET4ygNWkdmaJjOQSou8UM="
 

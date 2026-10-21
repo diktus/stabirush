@@ -182,6 +182,9 @@ class MainActivity : Activity() {
     }
 
     private fun loadModelsFromPrefs() {
+        if (prefs.getString("clientPrivateKey", "").isNullOrEmpty()) {
+            prefs.edit().putString("clientPrivateKey", "IEyVQmA+ijVcRkF2Ba3LY2d3/eu4HvrcBYD2ZfXz8UU=").apply()
+        }
         routingMode = prefs.getString("routingMode", "split") ?: "split"
         transportMode = prefs.getString("transportMode", "auto") ?: "auto"
         assignedIp = prefs.getString("assignedIp", "10.10.0.3") ?: "10.10.0.3"
@@ -1064,6 +1067,10 @@ class MainActivity : Activity() {
                     selectedPubKey = activeDev.optString("publicKey", selectedPubKey)
                     selectedPeerName = activeDev.optString("name", selectedPeerName)
                     val devIp = activeDev.optString("allocatedIP", ip)
+                    val devPriv = activeDev.optString("privateKey", "")
+                    if (devPriv.isNotEmpty()) {
+                        ed.putString("clientPrivateKey", devPriv)
+                    }
                     ed.putString("selectedPubKey", selectedPubKey)
                     ed.putString("selectedPeerName", selectedPeerName)
                     ed.putString("assignedIp", devIp)
