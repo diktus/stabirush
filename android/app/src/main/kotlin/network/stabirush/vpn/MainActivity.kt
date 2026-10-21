@@ -762,8 +762,8 @@ class MainActivity : Activity() {
         val isFallback = StabirushVpnService.isFallbackActive
         val activeTrans = StabirushVpnService.activeTransport
 
-        // ONLY considered connected if both running AND two-way data succeeded (RX > 0)!
-        val isConnected = running && isVerified && rxBytes > 0
+        // Connected once service is running and session is verified
+        val isConnected = running && isVerified
 
         // 1. Status Badge
         if (isConnected) {

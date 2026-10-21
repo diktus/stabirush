@@ -144,7 +144,7 @@ class StabirushVpnService : VpnService() {
                         try {
                             Thread.sleep(1000)
                             if (!isRunning) break
-                            broadcastStatus(if (isVerified && rxBytes.get() > 0) "Connected" else "Memverifikasi...")
+                            broadcastStatus(if (isVerified) "Connected" else "Memverifikasi...")
                         } catch (ie: InterruptedException) {
                             break
                         } catch (ignored: Exception) {}
@@ -331,21 +331,18 @@ class StabirushVpnService : VpnService() {
         val builder = Builder()
         val sessionName = "Stabirush · " + if (isSecure) "Secure (0.0.0.0/0)" else "Split: $activeSubnetNames"
         builder.setSession(sessionName)
-        builder.setMtu(1380)
+        builder.setMtu(1280)
         builder.addAddress(cleanIp, 32)
 
         if (isSecure) {
             builder.addRoute("0.0.0.0", 0)
-            builder.addDnsServer("10.0.0.154")
+            builder.addDnsServer("10.10.0.1")
             builder.addDnsServer("1.1.1.1")
         } else {
             addSplitSubnetRoutes(builder, activeSubnetsCidr)
             builder.addRoute("10.10.0.1", 32)
             builder.addRoute("10.0.0.154", 32)
-            builder.addRoute("1.1.1.1", 32)
-            builder.addRoute("8.8.8.8", 32)
-            builder.addDnsServer("10.0.0.154")
-            builder.addDnsServer("1.1.1.1")
+            builder.addDnsServer("10.10.0.1")
         }
 
         val pfd = builder.establish()
@@ -383,12 +380,12 @@ class StabirushVpnService : VpnService() {
             protect(sockV6)
         }
 
-        // Wait and verify handshake & reachability
+        // Wait and verify handshake
         var verified = false
         var latency = -1
-        for (attempt in 1..20) {
+        for (attempt in 1..25) {
             if (!isRunning) return false
-            try { Thread.sleep(300) } catch (ie: InterruptedException) { return false }
+            try { Thread.sleep(200) } catch (ie: InterruptedException) { return false }
 
             val uapiOutput = GoBackend.wgGetConfig(handle)
             val stats = WireGuardHelper.parseUapiStats(uapiOutput)
@@ -397,17 +394,10 @@ class StabirushVpnService : VpnService() {
                 Log.d("Stabirush", "WireGuard handshake confirmed on attempt $attempt! RX: ${stats.rxBytes}, Handshake: ${stats.lastHandshakeSec}")
                 break
             }
-
-            latency = testWireGuardReachability()
-            if (latency >= 0) {
-                verified = true
-                Log.d("Stabirush", "WireGuard reachability verified on attempt $attempt! Latency: ${latency}ms")
-                break
-            }
         }
 
         if (!verified && isAutoMode) {
-            Log.w("Stabirush", "WireGuard GoBackend could not verify handshake or reachability (RX=0) in auto mode!")
+            Log.w("Stabirush", "WireGuard GoBackend could not verify handshake (RX=0) in auto mode, falling back to TCP...")
             if (currentWgHandle >= 0) {
                 val h = currentWgHandle
                 currentWgHandle = -1
