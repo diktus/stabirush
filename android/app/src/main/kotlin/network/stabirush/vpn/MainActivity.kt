@@ -22,6 +22,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -659,22 +660,35 @@ class MainActivity : ComponentActivity() {
 
                         Spacer(modifier = Modifier.weight(1f))
 
-                        // Center Brand
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "STABIRUSH",
-                                color = Color.White,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.4.sp
+                        // Center Brand (Logo + Title + Subtitle)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_launcher),
+                                contentDescription = "Stabirush Logo",
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(8.dp))
                             )
-                            Text(
-                                text = "CYBER JETPACK COMPOSE",
-                                color = Color(0xFF0EA5E9),
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.2.sp
-                            )
+                            Spacer(modifier = Modifier.width(9.dp))
+                            Column(horizontalAlignment = Alignment.Start) {
+                                Text(
+                                    text = "STABIRUSH",
+                                    color = Color.White,
+                                    fontSize = 16.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.3.sp
+                                )
+                                Text(
+                                    text = "FAST VPN CONNECTION",
+                                    color = Color(0xFF0EA5E9),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.1.sp
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.weight(1f))
