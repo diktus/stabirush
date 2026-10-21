@@ -3,12 +3,31 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- Wave 3 (Outer) -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#38BDF8"
         android:strokeWidth="2.2"
         android:strokeLineCap="round"
-        android:pathData="M3,8 C8,3.5 16,3.5 21,8 M6.5,12 C10,8.5 14,8.5 17.5,12 M10,15.5 C11.2,14.3 12.8,14.3 14,15.5" />
+        android:strokeLineJoin="round"
+        android:pathData="M2,8.5 C7.5,3.5 16.5,3.5 22,8.5" />
+    <!-- Wave 2 (Middle) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M6,12.5 C9.5,9.5 14.5,9.5 18,12.5" />
+    <!-- Wave 1 (Inner) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M9.5,16 C11,14.5 13,14.5 14.5,16" />
+    <!-- Dot -->
     <path
         android:fillColor="#38BDF8"
         android:pathData="M12,19 C11.45,19 11,19.45 11,20 C11,20.55 11.45,21 12,21 C12.55,21 13,20.55 13,20 C13,19.45 12.55,19 12,19 Z" />

@@ -18,7 +18,6 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -65,7 +64,7 @@ class CctvTesterActivity : Activity() {
         header.addView(btnBack)
 
         val headerTitle = TextView(this).apply {
-            text = "Diagnostik & Tes CCTV"
+            text = "Diagnostics & Benchmark"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             typeface = Typeface.DEFAULT_BOLD
@@ -92,7 +91,7 @@ class CctvTesterActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         val targetTitle = TextView(this).apply {
-            text = "TARGET KAMERA CCTV"
+            text = "PROBE ENDPOINT TARGET"
             setTextColor(Color.parseColor("#64748B"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.DEFAULT_BOLD
@@ -101,7 +100,7 @@ class CctvTesterActivity : Activity() {
         infoCard.addView(targetTitle)
 
         val targetVal = TextView(this).apply {
-            text = "IP: 10.0.0.154  ·  Port: 8090 (RTSP / Stream Bridge)"
+            text = "IP: 10.0.0.154  ·  Port: 8090 (RTSP Stream Bridge)"
             setTextColor(Color.parseColor("#38BDF8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             typeface = Typeface.MONOSPACE
@@ -114,7 +113,7 @@ class CctvTesterActivity : Activity() {
 
         // Action Button
         btnStart = Button(this).apply {
-            text = "▶  Mulai Uji Performa Jaringan"
+            text = "▶  Start Diagnostic Benchmark"
             setAllCaps(false)
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
@@ -141,7 +140,7 @@ class CctvTesterActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(8) }
         }
         val tvLatLabel = TextView(this).apply {
-            text = "⚡ LATENSI TCP"
+            text = "⚡ TCP HANDSHAKE RTT"
             setTextColor(Color.parseColor("#64748B"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
             typeface = Typeface.DEFAULT_BOLD
@@ -193,12 +192,12 @@ class CctvTesterActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         tvStatus = TextView(this).apply {
-            text = "Status: Menunggu pengujian..."
+            text = "Status: Idle - ready for test."
             setTextColor(Color.parseColor("#94A3B8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
         }
         tvLog = TextView(this).apply {
-            text = "Hasil detail log akan muncul di sini."
+            text = "Detailed probe results will appear here."
             setTextColor(Color.parseColor("#64748B"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.MONOSPACE
@@ -216,8 +215,8 @@ class CctvTesterActivity : Activity() {
 
     private fun runBenchmark() {
         btnStart.isEnabled = false
-        btnStart.text = "Menguji..."
-        tvStatus.text = "Status: Mengirim probe ke 10.0.0.154:8090..."
+        btnStart.text = "Testing in progress..."
+        tvStatus.text = "Status: Sending probe to 10.0.0.154:8090..."
         tvStatus.setTextColor(Color.parseColor("#F59E0B"))
 
         Thread {
@@ -249,11 +248,10 @@ class CctvTesterActivity : Activity() {
 
                 val avgLat = if (latencies.isNotEmpty()) latencies.average() else 0.0
 
-                // 2. HTTP Download test
+                // 2. HTTP Download throughput test
                 var totalBytes = 0L
                 val dlSpeeds = mutableListOf<Double>()
                 for (i in 1..3) {
-                    val tStart = System.nanoTime()
                     try {
                         val url = URL(targetUrl)
                         val conn = (if (vpnNet != null) vpnNet.openConnection(url) else url.openConnection()) as HttpURLConnection
@@ -289,8 +287,8 @@ class CctvTesterActivity : Activity() {
 
                 mainHandler.post {
                     btnStart.isEnabled = true
-                    btnStart.text = "▶  Uji Ulang Jaringan"
-                    tvStatus.text = "Status: Pengujian selesai!"
+                    btnStart.text = "▶  Re-run Diagnostic Benchmark"
+                    tvStatus.text = "Status: Benchmark finished successfully!"
                     tvStatus.setTextColor(Color.parseColor("#10B981"))
 
                     tvLatencyResult.text = "${avgLat.toInt()} ms"
@@ -298,16 +296,16 @@ class CctvTesterActivity : Activity() {
 
                     tvLog.text = """
                         Probe Target: $targetHost:$targetPort
-                        TCP Handshake: min=${latencies.minOrNull() ?: 0}ms, avg=${avgLat.toInt()}ms, max=${latencies.maxOrNull() ?: 0}ms
+                        TCP Handshake RTT: min=${latencies.minOrNull() ?: 0}ms, avg=${avgLat.toInt()}ms, max=${latencies.maxOrNull() ?: 0}ms
                         Download Speeds: ${dlSpeeds.map { "${it.toInt()}kbps" }.joinToString(", ")}
-                        Total Data Diterima: $totalBytes bytes
+                        Total Payload Received: $totalBytes bytes
                     """.trimIndent()
                 }
             } catch (e: Exception) {
                 mainHandler.post {
                     btnStart.isEnabled = true
-                    btnStart.text = "▶  Mulai Uji Performa Jaringan"
-                    tvStatus.text = "Status: Gagal - ${e.message}"
+                    btnStart.text = "▶  Start Diagnostic Benchmark"
+                    tvStatus.text = "Status: Test failed - ${e.message}"
                     tvStatus.setTextColor(Color.parseColor("#EF4444"))
                 }
             }

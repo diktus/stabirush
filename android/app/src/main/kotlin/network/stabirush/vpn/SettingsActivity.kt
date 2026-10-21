@@ -50,7 +50,7 @@ class SettingsActivity : Activity() {
         header.addView(btnBack)
 
         val headerTitle = TextView(this).apply {
-            text = "Pengaturan"
+            text = "Settings"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             typeface = Typeface.DEFAULT_BOLD
@@ -70,7 +70,7 @@ class SettingsActivity : Activity() {
         }
 
         val labelGeneral = TextView(this).apply {
-            text = "KATEGORI PENGATURAN"
+            text = "CONFIGURATION CATEGORIES"
             setTextColor(Color.parseColor("#64748B"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.DEFAULT_BOLD
@@ -86,22 +86,27 @@ class SettingsActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        addModernMenuItem(menuCard, R.drawable.ic_wifi, Color.parseColor("#38BDF8"), "Aturan Wi-Fi Otomatis", "Auto-switch profil berdasarkan nama SSID Wi-Fi") {
+        addModernMenuItem(menuCard, R.drawable.ic_wifi, Color.parseColor("#38BDF8"), "Wi-Fi Smart Rules", "Automatic mode switching by Wi-Fi SSID") {
             startActivity(Intent(this, WifiRulesActivity::class.java))
         }
         addDivider(menuCard)
 
-        addModernMenuItem(menuCard, R.drawable.ic_hub, Color.parseColor("#0EA5E9"), "Kelola Subnet Private", "Daftar CIDR subnet kantor/CCTV untuk split tunnel") {
+        addModernMenuItem(menuCard, R.drawable.ic_hub, Color.parseColor("#0EA5E9"), "Private Subnets", "CIDR prefixes routed through the split tunnel") {
             startActivity(Intent(this, SubnetManagerActivity::class.java))
         }
         addDivider(menuCard)
 
-        addModernMenuItem(menuCard, R.drawable.ic_cctv, Color.parseColor("#10B981"), "Diagnostik & Tes CCTV", "Uji latensi RTSP port 8090 / 554 dan throughput kamera") {
+        addModernMenuItem(menuCard, R.drawable.ic_logs, Color.parseColor("#38BDF8"), "Connection Logs", "Live tunnel event feed and diagnostic export") {
+            startActivity(Intent(this, LogsActivity::class.java))
+        }
+        addDivider(menuCard)
+
+        addModernMenuItem(menuCard, R.drawable.ic_cctv, Color.parseColor("#10B981"), "Diagnostics & Benchmark", "Test RTSP latency and stream throughput") {
             startActivity(Intent(this, CctvTesterActivity::class.java))
         }
         addDivider(menuCard)
 
-        addModernMenuItem(menuCard, R.drawable.ic_account, Color.parseColor("#38BDF8"), "Server & Akun", "Status endpoint gateway, sinkronisasi, dan token akun") {
+        addModernMenuItem(menuCard, R.drawable.ic_account, Color.parseColor("#38BDF8"), "Server & Account", "Gateway host, session tokens, and peer identity") {
             startActivity(Intent(this, AccountActivity::class.java))
         }
 

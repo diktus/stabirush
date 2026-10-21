@@ -83,7 +83,7 @@ class WifiRulesActivity : Activity() {
         header.addView(btnBack)
 
         val headerTitle = TextView(this).apply {
-            text = "Aturan Wi-Fi Otomatis"
+            text = "Wi-Fi Smart Rules"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             typeface = Typeface.DEFAULT_BOLD
@@ -110,20 +110,20 @@ class WifiRulesActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         cbAutoSwitch = CheckBox(this).apply {
-            text = "Aktifkan Auto-Switch Profil Berdasarkan Wi-Fi"
+            text = "Enable Auto-Switch Based on Wi-Fi SSID"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             typeface = Typeface.DEFAULT_BOLD
             isChecked = prefs.getBoolean("autoWifiSwitchEnabled", false)
             setOnCheckedChangeListener { _, checked ->
                 prefs.edit().putBoolean("autoWifiSwitchEnabled", checked).apply()
-                Toast.makeText(this@WifiRulesActivity, if (checked) "Auto-switch Wi-Fi Aktif" else "Auto-switch Wi-Fi Nonaktif", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@WifiRulesActivity, if (checked) "Auto Wi-Fi Switching Enabled" else "Auto Wi-Fi Switching Disabled", Toast.LENGTH_SHORT).show()
             }
         }
         autoSwitchCard.addView(cbAutoSwitch)
 
         tvCurrentSsid = TextView(this).apply {
-            text = "📶 SSID Saat Ini: " + getDetectedSsid()
+            text = "📶 Active SSID: " + getDetectedSsid()
             setTextColor(Color.parseColor("#38BDF8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             typeface = Typeface.MONOSPACE
@@ -141,7 +141,7 @@ class WifiRulesActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         val labelRules = TextView(this).apply {
-            text = "DAFTAR ATURAN SSID"
+            text = "SSID PROFILE RULES"
             setTextColor(Color.parseColor("#64748B"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             typeface = Typeface.DEFAULT_BOLD
@@ -149,12 +149,12 @@ class WifiRulesActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
         val btnAdd = Button(this).apply {
-            text = "+ Tambah Aturan"
+            text = "+ Add Rule"
             setAllCaps(false)
             setTextColor(Color.parseColor("#10B981"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             background = roundedRect(Color.parseColor("#062B28"), dp(8), Color.parseColor("#10B981"))
-            layoutParams = LinearLayout.LayoutParams(dp(125), dp(34))
+            layoutParams = LinearLayout.LayoutParams(dp(110), dp(34))
             setOnClickListener { showAddDialog() }
         }
         rulesHeaderRow.addView(labelRules)
@@ -186,14 +186,14 @@ class WifiRulesActivity : Activity() {
                 if (!s.equals("<unknown ssid>", ignoreCase = true)) return s
             }
         } catch (ignored: Exception) {}
-        return "Seluler / Tidak Terhubung"
+        return "Cellular / Disconnected"
     }
 
     private fun renderRules() {
         rulesContainer.removeAllViews()
         if (wifiRules.isEmpty()) {
             val emptyTv = TextView(this).apply {
-                text = "Belum ada aturan SSID.\nTambahkan SSID kantor/rumah agar Stabirush otomatis berpindah mode saat terhubung ke Wi-Fi tersebut."
+                text = "No SSID rules defined yet.\nAdd trusted home or office SSIDs to automatically switch VPN mode when connected."
                 setTextColor(Color.parseColor("#64748B"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 setPadding(dp(12), dp(20), dp(12), dp(20))
@@ -225,7 +225,7 @@ class WifiRulesActivity : Activity() {
                 typeface = Typeface.DEFAULT_BOLD
             }
             val modeTv = TextView(this).apply {
-                text = "Aksi: Mode ${rule.profileMode.uppercase()} · ${rule.subnetNames}"
+                text = "Action: Mode ${rule.profileMode.uppercase()} · ${rule.subnetNames}"
                 setTextColor(Color.parseColor("#38BDF8"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                 setPadding(0, dp(2), 0, 0)
@@ -235,12 +235,12 @@ class WifiRulesActivity : Activity() {
             card.addView(infoCol)
 
             val btnDel = Button(this).apply {
-                text = "Hapus"
+                text = "Delete"
                 setAllCaps(false)
                 setTextColor(Color.parseColor("#EF4444"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
                 background = roundedRect(Color.parseColor("#271216"), dp(6), Color.parseColor("#EF4444"))
-                layoutParams = LinearLayout.LayoutParams(dp(65), dp(30))
+                layoutParams = LinearLayout.LayoutParams(dp(70), dp(30))
                 setOnClickListener {
                     wifiRules.removeAt(idx)
                     saveData()
@@ -258,14 +258,14 @@ class WifiRulesActivity : Activity() {
             setPadding(dp(20), dp(14), dp(20), dp(10))
         }
         val label = TextView(this).apply {
-            text = "Nama SSID (bisa gunakan wildcard *):"
+            text = "SSID Pattern (supports * wildcard):"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
         }
         root.addView(label)
 
         val etSsid = EditText(this).apply {
-            hint = "Contoh: Rumah*, Kost*, Office*"
+            hint = "e.g. Home*, Office*, Cafe*"
             setHintTextColor(Color.parseColor("#64748B"))
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
@@ -273,7 +273,7 @@ class WifiRulesActivity : Activity() {
         root.addView(etSsid)
 
         val labelMode = TextView(this).apply {
-            text = "Mode Operasi yang Diinginkan:"
+            text = "Target VPN Routing Profile:"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setPadding(0, dp(12), 0, 0)
@@ -320,18 +320,18 @@ class WifiRulesActivity : Activity() {
         root.addView(modeRow)
 
         AlertDialog.Builder(this)
-            .setTitle("Tambah Aturan Wi-Fi")
+            .setTitle("Add Wi-Fi Rule")
             .setView(root)
-            .setPositiveButton("Simpan") { _, _ ->
+            .setPositiveButton("Save") { _, _ ->
                 val s = etSsid.text.toString().trim()
                 if (s.isNotEmpty()) {
-                    wifiRules.add(WifiRule(ssid = s, profileMode = selectedMode, subnetNames = "Semua Subnet Aktif"))
+                    wifiRules.add(WifiRule(ssid = s, profileMode = selectedMode, subnetNames = "All Active Subnets"))
                     saveData()
                     renderRules()
-                    Toast.makeText(this, "Aturan untuk $s disimpan", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Rule for $s saved", Toast.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("Batal", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 

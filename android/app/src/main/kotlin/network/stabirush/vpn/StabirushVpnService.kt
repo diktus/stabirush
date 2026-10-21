@@ -52,7 +52,7 @@ class StabirushVpnService : VpnService() {
         @Volatile var activeAssignedIp: String = "10.10.0.3"
         @Volatile var activeServerHost: String = "vpn.jogjacloud.com"
         @Volatile var activeSubnetsCidr: String = "10.10.0.0/24,192.168.101.0/24,10.0.0.0/24"
-        @Volatile var activeSubnetNames: String = "Semua Subnet Private"
+        @Volatile var activeSubnetNames: String = "All Private Subnets"
         @Volatile var lastSyncedVersion: Long = 0
         @Volatile var lastPingMs: Int = -1
 
@@ -84,7 +84,7 @@ class StabirushVpnService : VpnService() {
         val routingMode = intent?.getStringExtra("routingMode") ?: prefs.getString("routingMode", "split") ?: "split"
         val transportMode = intent?.getStringExtra("transportMode") ?: prefs.getString("transportMode", "auto") ?: "auto"
         val subnetsCidr = intent?.getStringExtra("activeSubnets") ?: prefs.getString("activeSubnets", "10.10.0.0/24,192.168.101.0/24,10.0.0.0/24") ?: "10.10.0.0/24,192.168.101.0/24,10.0.0.0/24"
-        val subnetNames = intent?.getStringExtra("activeSubnetNames") ?: prefs.getString("activeSubnetNames", "Semua Subnet Private") ?: "Semua Subnet Private"
+        val subnetNames = intent?.getStringExtra("activeSubnetNames") ?: prefs.getString("activeSubnetNames", "All Private Subnets") ?: "All Private Subnets"
 
         startVpn(serverHost, assignedIp, routingMode, transportMode, subnetsCidr, subnetNames)
         return START_STICKY
@@ -105,15 +105,16 @@ class StabirushVpnService : VpnService() {
         activeRoutingMode = routingMode
         activeTransport = requestedTransport
         activeSubnetsCidr = if (subnetsCidr.isBlank()) "10.10.0.0/24,192.168.101.0/24,10.0.0.0/24" else subnetsCidr.trim()
-        activeSubnetNames = if (subnetNames.isBlank()) "Semua Subnet Private" else subnetNames.trim()
+        activeSubnetNames = if (subnetNames.isBlank()) "All Private Subnets" else subnetNames.trim()
 
         createNotificationChannel()
-        val initNotif = buildNotification("Menghubungkan ke Stabirush (${routingMode.uppercase()})...")
+        val initNotif = buildNotification("Connecting to Stabirush (${routingMode.uppercase()})...")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIF_ID, initNotif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
             startForeground(NOTIF_ID, initNotif)
         }
+        logI("Service started: serverHost=$serverHost, IP=$assignedIp, mode=$routingMode, transport=$requestedTransport")
 
         tunnelThread = Thread({
             try {
@@ -130,10 +131,10 @@ class StabirushVpnService : VpnService() {
                         InetAddress.getByName(cleanHost).hostAddress ?: "168.110.193.226"
                     }
                 } catch (e: Exception) {
-                    Log.w("Stabirush", "Failed to resolve $cleanHost, using fallback IP 168.110.193.226: ${e.message}")
+                    logW("Failed to resolve $cleanHost, using fallback IP 168.110.193.226: ${e.message}")
                     "168.110.193.226"
                 }
-                Log.d("Stabirush", "Resolved serverIp before TUN: cleanHost=$cleanHost -> serverIp=$serverIp")
+                logD("Resolved serverIp before TUN: cleanHost=$cleanHost -> serverIp=$serverIp")
 
                 val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 val devToken = prefs.getString("authToken", "") ?: ""
@@ -145,7 +146,7 @@ class StabirushVpnService : VpnService() {
                         try {
                             Thread.sleep(1000)
                             if (!isRunning) break
-                            broadcastStatus(if (isVerified) "Connected" else "Memverifikasi...")
+                            broadcastStatus(if (isVerified) "Connected" else "Verifying...")
                         } catch (ie: InterruptedException) {
                             break
                         } catch (ignored: Exception) {}
@@ -177,9 +178,9 @@ class StabirushVpnService : VpnService() {
                     // Explicit TCP/TLS 443 Tunnel Mode
                     activeTransport = "tcp"
                     isFallbackActive = false
-                    updateNotification("Menghubungkan ke TCP 443 (TLS)...")
-                    broadcastStatus("Menghubungkan ke TCP 443...")
-                    Log.d("Stabirush", "Explicit TCP mode requested. Establishing TUN for TCP 443...")
+                    updateNotification("Connecting via TCP 443 (TLS)...")
+                    broadcastStatus("Connecting to TCP 443...")
+                    logD("Explicit TCP mode requested. Establishing TUN for TCP 443...")
 
                     val builder = Builder()
                     val sLabel = if (routingMode == "secure") "Secure 0.0.0.0/0 (TCP)" else "Split: $activeSubnetNames (TCP)"
@@ -204,7 +205,7 @@ class StabirushVpnService : VpnService() {
                     val pfd = builder.establish()
                     if (pfd == null) {
                         isRunning = false
-                        broadcastStatus("Permission ditolak atau gagal membuat tun0")
+                        broadcastStatus("Permission denied or failed to create tun0")
                         stopSelf()
                         return@Thread
                     }
@@ -217,9 +218,9 @@ class StabirushVpnService : VpnService() {
                     // Explicit QUIC / Fast UDP Datagram Mode
                     activeTransport = "quic"
                     isFallbackActive = false
-                    updateNotification("Menghubungkan ke QUIC / Fast UDP...")
-                    broadcastStatus("Menghubungkan ke QUIC...")
-                    Log.d("Stabirush", "Explicit QUIC mode requested. Establishing TUN for QUIC 51821...")
+                    updateNotification("Connecting via QUIC / Fast UDP...")
+                    broadcastStatus("Connecting to QUIC...")
+                    logD("Explicit QUIC mode requested. Establishing TUN for QUIC 51821...")
 
                     val builder = Builder()
                     val sLabel = if (routingMode == "secure") "Secure 0.0.0.0/0 (QUIC)" else "Split: $activeSubnetNames (QUIC)"
@@ -241,7 +242,7 @@ class StabirushVpnService : VpnService() {
                     val pfd = builder.establish()
                     if (pfd == null) {
                         isRunning = false
-                        broadcastStatus("Permission ditolak atau gagal membuat tun0")
+                        broadcastStatus("Permission denied or failed to create tun0")
                         stopSelf()
                         return@Thread
                     }
@@ -258,16 +259,16 @@ class StabirushVpnService : VpnService() {
 
                     if (!wgSuccess && isRunning) {
                         if (requestedTransport == "wireguard" || requestedTransport == "udp") {
-                            broadcastStatus("WireGuard gagal: pastikan jaringan mendukung UDP 51820")
+                            broadcastStatus("WireGuard failed: network must support UDP 51820")
                             return@Thread
                         }
 
                         // Auto-fallback to TCP/TLS 443
                         isFallbackActive = true
                         activeTransport = "tcp_fallback"
-                        updateNotification("⚠️ WireGuard UDP RX=0 (terblokir ISP) · Beralih ke TCP 443...")
-                        broadcastStatus("WireGuard terblokir -> Fallback ke TCP 443...")
-                        Log.d("Stabirush", "WireGuard failed or blocked. Establishing TUN for TCP 443 fallback...")
+                        updateNotification("⚠️ WireGuard UDP RX=0 (ISP blocked) · Falling back to TCP 443...")
+                        broadcastStatus("WireGuard blocked -> Fallback to TCP 443...")
+                        logD("WireGuard failed or blocked. Establishing TUN for TCP 443 fallback...")
 
                         val builder = Builder()
                         builder.setSession("Stabirush · " + if (routingMode == "secure") "Secure 0.0.0.0/0 (TCP Fallback)" else "Split: $activeSubnetNames")
@@ -291,7 +292,7 @@ class StabirushVpnService : VpnService() {
                         val pfd = builder.establish()
                         if (pfd == null) {
                             isRunning = false
-                            broadcastStatus("Permission ditolak atau gagal membuat tun0")
+                            broadcastStatus("Permission denied or failed to create tun0")
                             stopSelf()
                             return@Thread
                         }
@@ -303,12 +304,12 @@ class StabirushVpnService : VpnService() {
                     }
                 }
             } catch (e: Exception) {
-                Log.e("Stabirush", "Tunnel thread exception: ${e.message}", e)
+                logE("Tunnel thread exception: ${e.message}", e)
                 if (isRunning) {
-                    broadcastStatus("Tunnel terhenti: ${e.message}")
+                    broadcastStatus("Tunnel stopped: ${e.message}")
                 }
             } finally {
-                Log.d("Stabirush", "Tunnel thread finished, stopping VPN...")
+                logD("Tunnel thread finished, stopping VPN...")
                 stopVpnInternal()
                 broadcastStatus("Disconnected")
             }
@@ -323,12 +324,12 @@ class StabirushVpnService : VpnService() {
         isAutoMode: Boolean
     ): Boolean {
         if (!GoBackend.isLibraryLoaded()) {
-            Log.e("Stabirush", "GoBackend native library is not loaded!")
+            logE("GoBackend native library is not loaded!")
             return false
         }
 
-        updateNotification("Mengaktifkan Standalone WireGuard (UDP 51820)...")
-        broadcastStatus("Mengaktifkan WireGuard Engine...")
+        updateNotification("Activating Standalone WireGuard (UDP 51820)...")
+        broadcastStatus("Activating WireGuard Engine...")
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val privKey = prefs.getString("clientPrivateKey", "") ?: ""
@@ -340,7 +341,7 @@ class StabirushVpnService : VpnService() {
         val serverPubHex = WireGuardHelper.base64ToHex(effectiveServerPubKey)
 
         if (clientPrivHex.length != 64 || serverPubHex.length != 64) {
-            Log.e("Stabirush", "Invalid key length for WireGuard UAPI: priv=${clientPrivHex.length}, pub=${serverPubHex.length}")
+            logE("Invalid key length for WireGuard UAPI: priv=${clientPrivHex.length}, pub=${serverPubHex.length}")
             return false
         }
 
@@ -373,7 +374,7 @@ class StabirushVpnService : VpnService() {
             allowedIps = allowedIps,
             keepalive = 25
         )
-        Log.d("Stabirush", "Building Standalone WireGuard tunnel with UAPI config (endpoint=$serverEndpoint, isSecure=$isSecure)...")
+        logD("Building Standalone WireGuard tunnel with UAPI config (endpoint=$serverEndpoint, isSecure=$isSecure)...")
 
         val builder = Builder()
         val sessionName = "Stabirush · " + if (isSecure) "Secure (0.0.0.0/0)" else "Split: $activeSubnetNames"
@@ -394,7 +395,7 @@ class StabirushVpnService : VpnService() {
 
         val pfd = builder.establish()
         if (pfd == null) {
-            Log.e("Stabirush", "VpnService.Builder establish() failed (null)")
+            logE("VpnService.Builder establish() failed (null)")
             return false
         }
 
@@ -406,20 +407,20 @@ class StabirushVpnService : VpnService() {
 
         val handle = GoBackend.wgTurnOn("wg0", tunFd, uapiConfig)
         if (handle < 0) {
-            Log.e("Stabirush", "GoBackend.wgTurnOn failed with error code: $handle")
+            logE("GoBackend.wgTurnOn failed with error code: $handle")
             try {
                 ParcelFileDescriptor.adoptFd(tunFd).close()
             } catch (ignored: Exception) {}
             return false
         }
         currentWgHandle = handle
-        Log.d("Stabirush", "WireGuard GoBackend initialized successfully! handle=$handle")
+        logD("WireGuard GoBackend initialized successfully! handle=$handle")
 
         // Socket protection is crucial to prevent routing loops
         val sockV4 = GoBackend.wgGetSocketV4(handle)
         if (sockV4 >= 0) {
             val pOk = protect(sockV4)
-            Log.d("Stabirush", "Protected WireGuard IPv4 socket fd $sockV4: $pOk")
+            logD("Protected WireGuard IPv4 socket fd $sockV4: $pOk")
         }
         val sockV6 = GoBackend.wgGetSocketV6(handle)
         if (sockV6 >= 0) {
@@ -458,7 +459,7 @@ class StabirushVpnService : VpnService() {
                     failedProbes++
                     // In auto mode, if wireguard is unresponsive for > 20s (10 probes), fallback to TCP
                     if (isAutoMode && failedProbes >= 10 && stats.rxBytes == 0L) {
-                        Log.w("Stabirush", "WireGuard reachability lost in auto mode, falling back to TCP...")
+                        logW("WireGuard reachability lost in auto mode, falling back to TCP...")
                         if (currentWgHandle >= 0) {
                             val h = currentWgHandle
                             currentWgHandle = -1
@@ -520,15 +521,15 @@ class StabirushVpnService : VpnService() {
                 baseSock.keepAlive = true
                 protect(baseSock)
 
-                Log.d("Stabirush", "Connecting TCP socket to $serverIp:$targetPort (SNI=$cleanHost)...")
+                logD("Connecting TCP socket to $serverIp:$targetPort (SNI=$cleanHost)...")
                 baseSock.connect(InetSocketAddress(serverIp, targetPort), 7000)
-                Log.d("Stabirush", "TCP connected! Initiating SSL...")
+                logD("TCP connected! Initiating SSL...")
 
                 val finalSock: Socket = if (isDomain) {
                     val sslFactory = javax.net.ssl.SSLSocketFactory.getDefault() as javax.net.ssl.SSLSocketFactory
                     val ssl = sslFactory.createSocket(baseSock, cleanHost, targetPort, true) as javax.net.ssl.SSLSocket
                     ssl.startHandshake()
-                    Log.d("Stabirush", "SSL handshake complete!")
+                    logD("SSL handshake complete!")
                     ssl
                 } else {
                     baseSock
@@ -555,7 +556,7 @@ class StabirushVpnService : VpnService() {
                 txBytes.addAndGet(reqBytes.size.toLong())
 
                 val (respBytes, statusLine) = readHttpHeaders(rawIn)
-                Log.d("Stabirush", "TCP Handshake status: $statusLine")
+                logD("TCP Handshake status: $statusLine")
                 if (!statusLine.contains("101") && !statusLine.contains("200")) {
                     throw Exception("Handshake gagal: $statusLine")
                 }
@@ -591,18 +592,18 @@ class StabirushVpnService : VpnService() {
                             if (rx <= 10 || rx % 50 == 0L) {
                                 val sIp = "${pkt[12].toUByte()}.${pkt[13].toUByte()}.${pkt[14].toUByte()}.${pkt[15].toUByte()}"
                                 val dIp = "${pkt[16].toUByte()}.${pkt[17].toUByte()}.${pkt[18].toUByte()}.${pkt[19].toUByte()}"
-                                Log.d("Stabirush", "DL #$rx: $sIp -> $dIp ($len bytes)")
+                                logD("DL #$rx: $sIp -> $dIp ($len bytes)")
                             }
                             try {
                                 synchronized(tunOut) {
                                     tunOut.write(pkt, 0, len)
                                 }
                             } catch (we: Exception) {
-                                Log.w("Stabirush", "tunOut write packet warning: ${we.message}")
+                                logW("tunOut write packet warning: ${we.message}")
                             }
                         }
                     } catch (e: Exception) {
-                        Log.e("Stabirush", "TCP Downlink loop terminated: ${e.message}")
+                        logE("TCP Downlink loop terminated: ${e.message}")
                         sessionAlive.set(false)
                         try { sock?.close() } catch (ignored: Exception) {}
                     }
@@ -625,7 +626,7 @@ class StabirushVpnService : VpnService() {
                             txBytes.addAndGet(2)
                         }
                     } catch (e: Exception) {
-                        Log.e("Stabirush", "TCP Keepalive terminated: ${e.message}")
+                        logE("TCP Keepalive terminated: ${e.message}")
                         sessionAlive.set(false)
                         try { sock?.close() } catch (ignored: Exception) {}
                     }
@@ -638,7 +639,7 @@ class StabirushVpnService : VpnService() {
                     val n = try {
                         tunIn.read(tunReadBuf)
                     } catch (e: Exception) {
-                        Log.d("Stabirush", "tunIn read terminated: ${e.message}")
+                        logD("tunIn read terminated: ${e.message}")
                         tunClosed = true
                         -1
                     }
@@ -651,7 +652,7 @@ class StabirushVpnService : VpnService() {
                         if (tx <= 10 || tx % 50 == 0L) {
                             val sIp = "${tunReadBuf[12].toUByte()}.${tunReadBuf[13].toUByte()}.${tunReadBuf[14].toUByte()}.${tunReadBuf[15].toUByte()}"
                             val dIp = "${tunReadBuf[16].toUByte()}.${tunReadBuf[17].toUByte()}.${tunReadBuf[18].toUByte()}.${tunReadBuf[19].toUByte()}"
-                            Log.d("Stabirush", "UL #$tx: $sIp -> $dIp ($n bytes)")
+                            logD("UL #$tx: $sIp -> $dIp ($n bytes)")
                         }
                         val frame = ByteArray(2 + n)
                         frame[0] = ((n ushr 8) and 0xFF).toByte()
@@ -663,7 +664,7 @@ class StabirushVpnService : VpnService() {
                                 rawOut.flush()
                             }
                         } catch (e: Exception) {
-                            Log.e("Stabirush", "TCP Uplink write error: ${e.message}")
+                            logE("TCP Uplink write error: ${e.message}")
                             sessionAlive.set(false)
                             break
                         }
@@ -676,7 +677,7 @@ class StabirushVpnService : VpnService() {
                 }
             } catch (e: Exception) {
                 sessionAlive.set(false)
-                Log.w("Stabirush", "TCP session exception: ${e.message}")
+                logW("TCP session exception: ${e.message}")
             } finally {
                 sessionAlive.set(false)
                 try {
@@ -688,7 +689,7 @@ class StabirushVpnService : VpnService() {
             }
 
             if (tunClosed || Thread.currentThread().isInterrupted || !isRunning) {
-                Log.d("Stabirush", "Exiting TCP tunnel loop cleanly (tunClosed=$tunClosed, isRunning=$isRunning)")
+                logD("Exiting TCP tunnel loop cleanly (tunClosed=$tunClosed, isRunning=$isRunning)")
                 break
             }
 
@@ -727,7 +728,7 @@ class StabirushVpnService : VpnService() {
                 currentDatagramSocket = sock
 
                 val srvAddr = InetSocketAddress(serverIp, targetPort)
-                Log.d("Stabirush", "Initiating QUIC/Fast-UDP handshake to $serverIp:$targetPort...")
+                logD("Initiating QUIC/Fast-UDP handshake to $serverIp:$targetPort...")
 
                 // Send SBRA handshake (magic 4 bytes + tokLen 1 byte + token)
                 val tokBytes = token.toByteArray(Charsets.UTF_8)
@@ -790,12 +791,12 @@ class StabirushVpnService : VpnService() {
                                         tunOut.write(recvBuf, 4, dataLen)
                                     }
                                 } catch (we: Exception) {
-                                    Log.w("Stabirush", "tunOut write warning: ${we.message}")
+                                    logW("tunOut write warning: ${we.message}")
                                 }
                             }
                         }
                     } catch (e: Exception) {
-                        Log.e("Stabirush", "QUIC Downlink loop ended: ${e.message}")
+                        logE("QUIC Downlink loop ended: ${e.message}")
                         sessionAlive.set(false)
                     }
                 }, "StabirushQuicDownlink")
@@ -843,7 +844,7 @@ class StabirushVpnService : VpnService() {
                         try {
                             finalSock.send(sendPacket)
                         } catch (e: Exception) {
-                            Log.e("Stabirush", "QUIC Uplink send error: ${e.message}")
+                            logE("QUIC Uplink send error: ${e.message}")
                             sessionAlive.set(false)
                             break
                         }
@@ -853,9 +854,9 @@ class StabirushVpnService : VpnService() {
                     }
                 }
             } catch (e: Exception) {
-                Log.e("Stabirush", "QUIC session error: ${e.message}", e)
+                logE("QUIC session error: ${e.message}", e)
                 if (isRunning && !tunClosed) {
-                    broadcastStatus("Menghubungkan ulang QUIC...")
+                    broadcastStatus("Reconnecting QUIC...")
                     try { Thread.sleep(2000) } catch (ie: InterruptedException) { break }
                 }
             } finally {
@@ -1050,11 +1051,11 @@ class StabirushVpnService : VpnService() {
         if (currentWgHandle >= 0) {
             val h = currentWgHandle
             currentWgHandle = -1
-            Log.d("Stabirush", "Turning off standalone WireGuard GoBackend handle: $h")
+            logD("Turning off standalone WireGuard GoBackend handle: $h")
             try {
                 GoBackend.wgTurnOff(h)
             } catch (t: Throwable) {
-                Log.e("Stabirush", "Error turning off WireGuard handle $h: ${t.message}")
+                logE("Error turning off WireGuard handle $h: ${t.message}", t)
             }
         }
 
@@ -1077,7 +1078,33 @@ class StabirushVpnService : VpnService() {
         vpnInterface = null
     }
 
+    private fun logD(msg: String) {
+        logD(msg)
+        AppLogger.d("VPN", msg)
+    }
+
+    private fun logI(msg: String) {
+        logI(msg)
+        AppLogger.i("VPN", msg)
+    }
+
+    private fun logW(msg: String) {
+        logW(msg)
+        AppLogger.w("VPN", msg)
+    }
+
+    private fun logE(msg: String, tr: Throwable? = null) {
+        if (tr != null) {
+            logE(msg, tr)
+            AppLogger.e("VPN", "$msg: ${tr.message}")
+        } else {
+            logE(msg)
+            AppLogger.e("VPN", msg)
+        }
+    }
+
     private fun broadcastStatus(msg: String) {
+        AppLogger.i("VPN", "Status: $msg")
         val i = Intent(ACTION_STATUS_BROADCAST)
         i.setPackage(packageName)
         i.putExtra("status", msg)

@@ -37,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -251,8 +250,8 @@ class MainActivity : ComponentActivity() {
 
         if (restartIfConnected && StabirushVpnService.isRunning) {
             launchVpnService()
-            val label = if (mode.equals("secure", ignoreCase = true)) "🔒 Secure Full (0.0.0.0/0)" else "Split Tunnel"
-            Toast.makeText(this, "Mode disetel ke $label", Toast.LENGTH_SHORT).show()
+            val label = if (mode.equals("secure", ignoreCase = true)) "Secure Full Tunnel (0.0.0.0/0)" else "Split Tunnel"
+            Toast.makeText(this, "Routing mode set to $label", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -263,12 +262,12 @@ class MainActivity : ComponentActivity() {
         if (restartIfConnected && StabirushVpnService.isRunning) {
             launchVpnService()
             val label = when (mode) {
-                "quic" -> "🚀 QUIC (UDP 8443)"
+                "quic" -> "🚀 QUIC (UDP 8443 / 51821)"
                 "wstunnel", "tcp" -> "🛡️ TCP:443 (TLS)"
                 "udp", "wireguard" -> "⚡ WireGuard (UDP 51820)"
-                else -> "Auto (Fallback)"
+                else -> "Auto (Adaptive Fallback)"
             }
-            Toast.makeText(this, "Transport disetel ke $label", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Transport set to $label", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -374,12 +373,12 @@ class MainActivity : ComponentActivity() {
             if (targetMode == "disconnect") {
                 if (StabirushVpnService.isRunning) {
                     toggleVpnConnection()
-                    Toast.makeText(this, "Wi-Fi '$ssid': VPN Dinonaktifkan otomatis", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Wi-Fi '$ssid': VPN Disconnected automatically", Toast.LENGTH_SHORT).show()
                 }
             } else if (targetMode == "secure" || targetMode == "split") {
                 if (routingModeState.value != targetMode) {
                     setRoutingMode(targetMode, restartIfConnected = true)
-                    Toast.makeText(this, "Wi-Fi '$ssid': Beralih ke mode $targetMode", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Wi-Fi '$ssid': Switched to $targetMode mode", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -418,7 +417,7 @@ class MainActivity : ComponentActivity() {
                             withContext(Dispatchers.Main) {
                                 assignedIpState.value = ip
                                 selectedPeerNameState.value = name
-                                if (showToastMsg) Toast.makeText(this@MainActivity, "✓ Berhasil disinkronkan dengan server", Toast.LENGTH_SHORT).show()
+                                if (showToastMsg) Toast.makeText(this@MainActivity, "✓ Synchronized with server", Toast.LENGTH_SHORT).show()
                             }
                             return@launch
                         }
@@ -426,7 +425,7 @@ class MainActivity : ComponentActivity() {
                 }
                 if (showToastMsg) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "Gagal sinkronisasi (HTTP ${conn.responseCode})", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "Sync failed (HTTP ${conn.responseCode})", Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {
@@ -441,9 +440,9 @@ class MainActivity : ComponentActivity() {
 
     private fun confirmLogout() {
         AlertDialog.Builder(this)
-            .setTitle("Konfirmasi Logout")
-            .setMessage("Apakah Anda yakin ingin keluar dari akun Stabirush?")
-            .setPositiveButton("Logout") { _, _ ->
+            .setTitle("Confirm Sign Out")
+            .setMessage("Are you sure you want to sign out from your Stabirush account?")
+            .setPositiveButton("Sign Out") { _, _ ->
                 if (StabirushVpnService.isRunning) {
                     val stopIntent = Intent(this, StabirushVpnService::class.java).apply {
                         action = StabirushVpnService.ACTION_DISCONNECT
@@ -457,12 +456,12 @@ class MainActivity : ComponentActivity() {
                 startActivity(intent)
                 finish()
             }
-            .setNegativeButton("Batal", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
     // =========================================================================
-    // JETPACK COMPOSE UI IMPLEMENTATION
+    // JETPACK COMPOSE UI (MODERN MATERIAL 3 & PHOSPHOR ICONS)
     // =========================================================================
 
     @Composable
@@ -539,19 +538,20 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // Drawer Items List
                     Column(
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 12.dp)
+                            .verticalScroll(rememberScrollState())
                     ) {
                         DrawerMenuItem(
                             iconRes = R.drawable.ic_wifi,
                             tint = Color(0xFF38BDF8),
-                            title = "Aturan Wi-Fi Otomatis",
-                            sub = "Auto-switch profil SSID"
+                            title = "Wi-Fi Smart Rules",
+                            sub = "Auto-switch on SSID change"
                         ) {
                             scope.launch { drawerState.close() }
                             startActivity(Intent(this@MainActivity, WifiRulesActivity::class.java))
@@ -560,18 +560,28 @@ class MainActivity : ComponentActivity() {
                         DrawerMenuItem(
                             iconRes = R.drawable.ic_hub,
                             tint = Color(0xFF0EA5E9),
-                            title = "Kelola Subnet Private",
-                            sub = "Daftar CIDR split tunnel"
+                            title = "Private Subnets",
+                            sub = "Manage split tunnel CIDRs"
                         ) {
                             scope.launch { drawerState.close() }
                             startActivity(Intent(this@MainActivity, SubnetManagerActivity::class.java))
                         }
 
                         DrawerMenuItem(
+                            iconRes = R.drawable.ic_logs,
+                            tint = Color(0xFF38BDF8),
+                            title = "Connection Logs",
+                            sub = "Display live logs & export"
+                        ) {
+                            scope.launch { drawerState.close() }
+                            startActivity(Intent(this@MainActivity, LogsActivity::class.java))
+                        }
+
+                        DrawerMenuItem(
                             iconRes = R.drawable.ic_cctv,
                             tint = Color(0xFF10B981),
-                            title = "Diagnostik & Tes CCTV",
-                            sub = "Uji RTSP & throughput"
+                            title = "Diagnostics & Benchmark",
+                            sub = "Test RTSP latency & speed"
                         ) {
                             scope.launch { drawerState.close() }
                             startActivity(Intent(this@MainActivity, CctvTesterActivity::class.java))
@@ -580,8 +590,8 @@ class MainActivity : ComponentActivity() {
                         DrawerMenuItem(
                             iconRes = R.drawable.ic_account,
                             tint = Color(0xFF38BDF8),
-                            title = "Server & Akun",
-                            sub = "Status server & token sesi"
+                            title = "Server & Account",
+                            sub = "Host gateway & token info"
                         ) {
                             scope.launch { drawerState.close() }
                             startActivity(Intent(this@MainActivity, AccountActivity::class.java))
@@ -604,10 +614,17 @@ class MainActivity : ComponentActivity() {
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(42.dp)
+                                .height(44.dp)
                                 .border(1.dp, Color(0xFFEF4444), RoundedCornerShape(10.dp))
                         ) {
-                            Text("🚪  Keluar (Logout)", color = Color(0xFFEF4444), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_logout),
+                                contentDescription = "Sign Out",
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sign Out", color = Color(0xFFEF4444), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -662,7 +679,7 @@ class MainActivity : ComponentActivity() {
 
                         Spacer(modifier = Modifier.weight(1f))
 
-                        // Sync Refresh Button
+                        // Modern Cloud Sync Pull Button
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -673,8 +690,8 @@ class MainActivity : ComponentActivity() {
                                 .clickable { syncFromServer(showToastMsg = true) }
                         ) {
                             Icon(
-                                painter = painterResource(id = R.drawable.ic_sync),
-                                contentDescription = "Sync",
+                                painter = painterResource(id = R.drawable.ic_cloud_sync),
+                                contentDescription = "Sync Config",
                                 tint = Color(0xFF38BDF8),
                                 modifier = Modifier.size(20.dp)
                             )
@@ -824,8 +841,8 @@ class MainActivity : ComponentActivity() {
 
                     Text(
                         text = when {
-                            isConnected -> if (currentRouting.equals("secure", ignoreCase = true)) "SECURE TUNNEL AKTIF" else "SPLIT TUNNEL AKTIF"
-                            isRunning -> "MENGHUBUNGKAN..."
+                            isConnected -> if (currentRouting.equals("secure", ignoreCase = true)) "SECURE TUNNEL ACTIVE" else "SPLIT TUNNEL ACTIVE"
+                            isRunning -> "CONNECTING..."
                             else -> "DISCONNECTED"
                         },
                         color = when {
@@ -840,9 +857,9 @@ class MainActivity : ComponentActivity() {
 
                     Text(
                         text = when {
-                            isConnected -> "Koneksi terenkripsi 2-Arah · Gateway 10.10.0.1"
-                            isRunning -> if (activeTrans == "quic") "Menghubungkan via QUIC Fast-UDP..." else "Menguji probe handshake..."
-                            else -> "Ketuk tombol untuk mengamankan koneksi"
+                            isConnected -> "2-Way Encrypted Tunnel · Gateway 10.10.0.1"
+                            isRunning -> if (activeTrans == "quic") "Establishing QUIC Fast-UDP stream..." else "Verifying handshake response..."
+                            else -> "Tap to secure your connection"
                         },
                         color = Color(0xFF94A3B8),
                         fontSize = 12.5.sp,
@@ -858,15 +875,15 @@ class MainActivity : ComponentActivity() {
                             iconRes = R.drawable.ic_throughput,
                             tint = Color(0xFF38BDF8),
                             value = if (isConnected) "⬇ ${formatBytes(rxBytes)} / ⬆ ${formatBytes(txBytes)}" else "0 B / 0 B",
-                            sub = if (isConnected) "$rxPkts rx / $txPkts tx pkts" else "Trafik belum berjalan"
+                            sub = if (isConnected) "$rxPkts rx / $txPkts tx pkts" else "Idle network"
                         )
 
                         Spacer(modifier = Modifier.width(10.dp))
 
-                        // Card 2: Latency Ping
+                        // Card 2: Modern ECG Pulse Wave Latency
                         ModernBentoCardWithDot(
                             modifier = Modifier.weight(1f),
-                            header = "LATENSI PING",
+                            header = "PING LATENCY",
                             iconRes = R.drawable.ic_pulse,
                             tint = Color(0xFF10B981),
                             value = if (isConnected) (if (pingMs >= 0) "$pingMs ms" else "<1 ms") else "-- ms",
@@ -888,8 +905,12 @@ class MainActivity : ComponentActivity() {
 
                         ModernBentoCard(
                             modifier = Modifier.weight(1f),
-                            header = "PROTOKOL",
-                            iconRes = if (activeTrans == "quic") R.drawable.ic_rocket_launch else if (activeTrans.contains("tcp")) R.drawable.ic_lock else R.drawable.ic_shield_check,
+                            header = "PROTOCOL",
+                            iconRes = when (activeTrans) {
+                                "quic" -> R.drawable.ic_transport_quic
+                                "tcp", "wstunnel" -> R.drawable.ic_transport_tcp
+                                else -> R.drawable.ic_transport_wireguard
+                            },
                             tint = Color(0xFF38BDF8),
                             value = if (isConnected) pLabel else "Auto",
                             sub = if (isConnected) pSub else "Standby"
@@ -918,7 +939,7 @@ class MainActivity : ComponentActivity() {
                             .padding(horizontal = 4.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = "MODA TRANSPORTASI",
+                            text = "TRANSPORT PROTOCOL",
                             color = Color(0xFF64748B),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -929,21 +950,41 @@ class MainActivity : ComponentActivity() {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(42.dp)
+                            .height(44.dp)
                     ) {
-                        TransportModeButton(modifier = Modifier.weight(0.26f), label = "⚡ WG", selected = currentTrans == "udp" || currentTrans == "wireguard") {
+                        TransportModeButton(
+                            modifier = Modifier.weight(0.26f),
+                            iconRes = R.drawable.ic_transport_wireguard,
+                            label = "WG",
+                            selected = currentTrans == "udp" || currentTrans == "wireguard"
+                        ) {
                             setTransportMode("udp", restartIfConnected = true)
                         }
                         Spacer(modifier = Modifier.width(4.dp))
-                        TransportModeButton(modifier = Modifier.weight(0.26f), label = "🚀 QUIC", selected = currentTrans == "quic") {
+                        TransportModeButton(
+                            modifier = Modifier.weight(0.26f),
+                            iconRes = R.drawable.ic_transport_quic,
+                            label = "QUIC",
+                            selected = currentTrans == "quic"
+                        ) {
                             setTransportMode("quic", restartIfConnected = true)
                         }
                         Spacer(modifier = Modifier.width(4.dp))
-                        TransportModeButton(modifier = Modifier.weight(0.26f), label = "🛡️ TCP", selected = currentTrans == "wstunnel" || currentTrans == "tcp") {
+                        TransportModeButton(
+                            modifier = Modifier.weight(0.26f),
+                            iconRes = R.drawable.ic_transport_tcp,
+                            label = "TCP",
+                            selected = currentTrans == "wstunnel" || currentTrans == "tcp"
+                        ) {
                             setTransportMode("wstunnel", restartIfConnected = true)
                         }
                         Spacer(modifier = Modifier.width(4.dp))
-                        TransportModeButton(modifier = Modifier.weight(0.22f), label = "Auto", selected = currentTrans == "auto") {
+                        TransportModeButton(
+                            modifier = Modifier.weight(0.22f),
+                            iconRes = R.drawable.ic_transport_auto,
+                            label = "Auto",
+                            selected = currentTrans == "auto"
+                        ) {
                             setTransportMode("auto", restartIfConnected = true)
                         }
                     }
@@ -1092,19 +1133,29 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun TransportModeButton(
         modifier: Modifier = Modifier,
+        iconRes: Int,
         label: String,
         selected: Boolean,
         onClick: () -> Unit
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
             modifier = modifier
                 .fillMaxHeight()
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(10.dp))
                 .background(if (selected) Color(0xFF0284C7) else Color(0xFF111827))
-                .border(1.dp, if (selected) Color(0xFF38BDF8) else Color(0xFF1F2937), RoundedCornerShape(8.dp))
+                .border(1.dp, if (selected) Color(0xFF38BDF8) else Color(0xFF1F2937), RoundedCornerShape(10.dp))
                 .clickable { onClick() }
+                .padding(horizontal = 4.dp)
         ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = label,
+                tint = if (selected) Color.White else Color(0xFF94A3B8),
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = label,
                 color = if (selected) Color.White else Color(0xFF94A3B8),

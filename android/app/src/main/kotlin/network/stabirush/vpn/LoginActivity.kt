@@ -117,7 +117,7 @@ class LoginActivity : Activity() {
         container.addView(brandRow)
 
         val badgeZT = TextView(this).apply {
-            text = "ZERO TRUST ACCESS · LOGIN PENGGUNA"
+            text = "ZERO TRUST ACCESS · USER SIGN IN"
             setTextColor(Color.parseColor("#38BDF8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
             typeface = Typeface.DEFAULT_BOLD
@@ -129,7 +129,7 @@ class LoginActivity : Activity() {
         container.addView(badgeZT)
 
         val tvDesc = TextView(this).apply {
-            text = "Masuk dengan akun terdaftar untuk mengamankan koneksi & menyinkronkan profil subnet perangkat Anda."
+            text = "Sign in with your registered account to secure connection & synchronize your device subnet profile."
             setTextColor(Color.parseColor("#94A3B8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
             gravity = Gravity.CENTER
@@ -146,7 +146,7 @@ class LoginActivity : Activity() {
         }
 
         // 1. Server Host Field
-        card.addView(createFieldLabel("SERVER GATEWAY"))
+        card.addView(createFieldLabel("GATEWAY SERVER"))
         etServer = createInputField("vpn.jogjacloud.com", InputType.TYPE_CLASS_TEXT)
         val savedHost = prefs.getString("serverHost", "vpn.jogjacloud.com") ?: "vpn.jogjacloud.com"
         etServer.setText(savedHost)
@@ -156,7 +156,7 @@ class LoginActivity : Activity() {
 
         // 2. Username Field
         card.addView(createFieldLabel("USERNAME / USER ID"))
-        etUsername = createInputField("Username (misal: beni)", InputType.TYPE_CLASS_TEXT)
+        etUsername = createInputField("Username (e.g. beni)", InputType.TYPE_CLASS_TEXT)
         val savedUser = prefs.getString("username", "beni") ?: "beni"
         etUsername.setText(savedUser)
         card.addView(etUsername)
@@ -171,10 +171,10 @@ class LoginActivity : Activity() {
         card.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(14)))
 
         // 4. Device Name Field
-        card.addView(createFieldLabel("NAMA PERANGKAT"))
+        card.addView(createFieldLabel("DEVICE NAME"))
         val defaultDevName = "Benidiktuz Phone (" + Build.MODEL + ")"
         val savedDevName = prefs.getString("selectedPeerName", defaultDevName) ?: defaultDevName
-        etDeviceName = createInputField("Nama Perangkat", InputType.TYPE_CLASS_TEXT)
+        etDeviceName = createInputField("Device Name", InputType.TYPE_CLASS_TEXT)
         etDeviceName.setText(savedDevName)
         card.addView(etDeviceName)
 
@@ -192,7 +192,7 @@ class LoginActivity : Activity() {
 
         // Login Button
         btnLogin = Button(this).apply {
-            text = "MASUK KE STABIRUSH"
+            text = "SIGN IN TO STABIRUSH"
             setTextColor(Color.parseColor("#080D1A"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             typeface = Typeface.DEFAULT_BOLD
@@ -216,7 +216,7 @@ class LoginActivity : Activity() {
 
         // Footer info
         val tvFooter = TextView(this).apply {
-            text = "Kredensial login dikonfigurasi melalui dasbor admin Stabirush.\nPerangkat terlindungi enkripsi end-to-end WireGuard."
+            text = "Credentials configured via Stabirush Admin Console.\nDevice protected by end-to-end WireGuard encryption."
             setTextColor(Color.parseColor("#475569"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             gravity = Gravity.CENTER
@@ -258,21 +258,21 @@ class LoginActivity : Activity() {
         val deviceName = etDeviceName.text.toString().trim()
 
         if (serverHost.isEmpty()) {
-            showError("Alamat server tidak boleh kosong")
+            showError("Server address cannot be empty")
             return
         }
         if (username.isEmpty()) {
-            showError("Username tidak boleh kosong")
+            showError("Username cannot be empty")
             return
         }
         if (password.isEmpty()) {
-            showError("Password tidak boleh kosong")
+            showError("Password cannot be empty")
             return
         }
 
         tvError.visibility = View.GONE
         btnLogin.isEnabled = false
-        btnLogin.text = "MEMVERIFIKASI..."
+        btnLogin.text = "VERIFYING..."
         progressBar.visibility = View.VISIBLE
 
         Thread {
@@ -325,7 +325,7 @@ class LoginActivity : Activity() {
                         .apply()
 
                     mainHandler.post {
-                        Toast.makeText(this, "Berhasil masuk sebagai $username", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Successfully signed in as $username", Toast.LENGTH_SHORT).show()
                         val intent = Intent(this, MainActivity::class.java).apply {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         }
@@ -340,7 +340,7 @@ class LoginActivity : Activity() {
                     while (br.readLine().also { line = it } != null) sb.append(line)
                     br.close()
 
-                    var msg = "Autentikasi gagal (HTTP $code)"
+                    var msg = "Authentication failed (HTTP $code)"
                     try {
                         val errObj = JSONObject(sb.toString())
                         val errText = errObj.optString("error", "")
@@ -355,12 +355,12 @@ class LoginActivity : Activity() {
                 }
             } catch (e: Exception) {
                 mainHandler.post {
-                    showError("Koneksi gagal: ${e.message}")
+                    showError("Connection failed: ${e.message}")
                 }
             } finally {
                 mainHandler.post {
                     btnLogin.isEnabled = true
-                    btnLogin.text = "MASUK KE STABIRUSH"
+                    btnLogin.text = "SIGN IN TO STABIRUSH"
                     progressBar.visibility = View.GONE
                 }
             }

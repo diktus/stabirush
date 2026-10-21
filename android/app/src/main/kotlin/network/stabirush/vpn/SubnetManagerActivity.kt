@@ -95,7 +95,7 @@ class SubnetManagerActivity : Activity() {
         header.addView(btnBack)
 
         val headerTitle = TextView(this).apply {
-            text = "Kelola Subnet Private"
+            text = "Private Subnets"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             typeface = Typeface.DEFAULT_BOLD
@@ -121,7 +121,7 @@ class SubnetManagerActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
         val labelSubnets = TextView(this).apply {
-            text = "SUBNET AKTIF (SPLIT TUNNEL)"
+            text = "ACTIVE SPLIT-TUNNEL SUBNETS"
             setTextColor(Color.parseColor("#64748B"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             typeface = Typeface.DEFAULT_BOLD
@@ -129,12 +129,12 @@ class SubnetManagerActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
         val btnAdd = Button(this).apply {
-            text = "+ Tambah CIDR"
+            text = "+ Add CIDR"
             setAllCaps(false)
             setTextColor(Color.parseColor("#10B981"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             background = roundedRect(Color.parseColor("#062B28"), dp(8), Color.parseColor("#10B981"))
-            layoutParams = LinearLayout.LayoutParams(dp(125), dp(34))
+            layoutParams = LinearLayout.LayoutParams(dp(110), dp(34))
             setOnClickListener { showAddSubnetDialog() }
         }
         actRow.addView(labelSubnets)
@@ -142,7 +142,7 @@ class SubnetManagerActivity : Activity() {
         content.addView(actRow)
 
         val hintTv = TextView(this).apply {
-            text = "Subnet yang dicentang akan diarahkan ke tunnel Stabirush. Trafik internet selain subnet ini tetap berjalan langsung melalui koneksi reguler Anda."
+            text = "Checked subnets are routed securely through the VPN tunnel. All other internet traffic bypasses the tunnel directly."
             setTextColor(Color.parseColor("#64748B"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             setPadding(0, dp(6), 0, dp(12))
@@ -221,13 +221,13 @@ class SubnetManagerActivity : Activity() {
             setPadding(dp(20), dp(14), dp(20), dp(10))
         }
         val etName = EditText(this).apply {
-            hint = "Nama Subnet (misal: Server Kantor)"
+            hint = "Subnet Name (e.g. Office Server)"
             setHintTextColor(Color.parseColor("#64748B"))
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
         }
         val etCidr = EditText(this).apply {
-            hint = "CIDR (misal: 192.168.10.0/24)"
+            hint = "CIDR Prefix (e.g. 192.168.10.0/24)"
             setHintTextColor(Color.parseColor("#64748B"))
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
@@ -236,21 +236,21 @@ class SubnetManagerActivity : Activity() {
         root.addView(etCidr)
 
         AlertDialog.Builder(this)
-            .setTitle("Tambah Subnet Kustom")
+            .setTitle("Add Custom Subnet")
             .setView(root)
-            .setPositiveButton("Tambah") { _, _ ->
+            .setPositiveButton("Add") { _, _ ->
                 val name = etName.text.toString().trim()
                 val cidr = etCidr.text.toString().trim()
                 if (name.isNotEmpty() && cidr.isNotEmpty()) {
-                    val ns = NamedSubnet(id = "custom_" + System.currentTimeMillis(), name = name, cidr = cidr, description = "Subnet kustom")
+                    val ns = NamedSubnet(id = "custom_" + System.currentTimeMillis(), name = name, cidr = cidr, description = "Custom subnet prefix")
                     namedSubnets.add(ns)
                     activeSubnetsCidr.add(cidr)
                     saveData()
                     renderSubnets()
-                    Toast.makeText(this, "Subnet $name ($cidr) ditambahkan", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Subnet $name ($cidr) added", Toast.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("Batal", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 

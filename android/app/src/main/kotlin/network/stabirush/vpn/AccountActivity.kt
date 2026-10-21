@@ -84,7 +84,7 @@ class AccountActivity : Activity() {
         header.addView(btnBack)
 
         val headerTitle = TextView(this).apply {
-            text = "Server & Akun"
+            text = "Server & Account"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             typeface = Typeface.DEFAULT_BOLD
@@ -111,12 +111,12 @@ class AccountActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        tvPeerVal = addInfoRow(card, "NAMA PERANGKAT", selectedPeerName)
-        tvIpVal = addInfoRow(card, "IP VIRTUAL WIREGUARD", assignedIp)
-        tvServerVal = addInfoRow(card, "SERVER HOST GATEWAY", serverHost)
+        tvPeerVal = addInfoRow(card, "DEVICE NAME", selectedPeerName)
+        tvIpVal = addInfoRow(card, "VIRTUAL WIREGUARD IP", assignedIp)
+        tvServerVal = addInfoRow(card, "GATEWAY HOST", serverHost)
 
         val btnEditServer = Button(this).apply {
-            text = "Ubah Host Server"
+            text = "Edit Gateway Host"
             setAllCaps(false)
             setTextColor(Color.parseColor("#38BDF8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
@@ -139,7 +139,7 @@ class AccountActivity : Activity() {
         }
 
         val syncTitle = TextView(this).apply {
-            text = "SINKRONISASI CLOUD"
+            text = "CLOUD SYNCHRONIZATION"
             setTextColor(Color.parseColor("#64748B"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.DEFAULT_BOLD
@@ -148,7 +148,7 @@ class AccountActivity : Activity() {
         syncCard.addView(syncTitle)
 
         val btnSyncPull = Button(this).apply {
-            text = "🔄 Tarik Konfigurasi Server (Pull)"
+            text = "Pull Cloud Configuration"
             setAllCaps(false)
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
@@ -159,7 +159,7 @@ class AccountActivity : Activity() {
         syncCard.addView(btnSyncPull)
 
         tvSyncStatus = TextView(this).apply {
-            text = "Siap untuk sinkronisasi"
+            text = "Ready to synchronize"
             setTextColor(Color.parseColor("#94A3B8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             setPadding(0, dp(8), 0, 0)
@@ -171,7 +171,7 @@ class AccountActivity : Activity() {
 
         // Logout Button
         val btnLogout = Button(this).apply {
-            text = "🚪  Keluar dari Akun (Logout)"
+            text = "Sign Out"
             setAllCaps(false)
             setTextColor(Color.parseColor("#EF4444"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
@@ -221,23 +221,23 @@ class AccountActivity : Activity() {
         root.addView(et)
 
         AlertDialog.Builder(this)
-            .setTitle("Ubah Host Server")
+            .setTitle("Edit Gateway Host")
             .setView(root)
-            .setPositiveButton("Simpan") { _, _ ->
+            .setPositiveButton("Save") { _, _ ->
                 val h = et.text.toString().trim()
                 if (h.isNotEmpty()) {
                     serverHost = h
                     prefs.edit().putString("serverHost", h).apply()
                     tvServerVal.text = h
-                    Toast.makeText(this, "Host disetel ke $h", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Host set to $h", Toast.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("Batal", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
     private fun pullSync() {
-        tvSyncStatus.text = "Menghubungi server..."
+        tvSyncStatus.text = "Connecting to server..."
         tvSyncStatus.setTextColor(Color.parseColor("#F59E0B"))
 
         Thread {
@@ -263,7 +263,7 @@ class AccountActivity : Activity() {
                                 selectedPeerName = name
                                 tvIpVal.text = ip
                                 tvPeerVal.text = name
-                                tvSyncStatus.text = "✓ Sinkronisasi berhasil!"
+                                tvSyncStatus.text = "✓ Sync successful!"
                                 tvSyncStatus.setTextColor(Color.parseColor("#10B981"))
                             }
                             return@Thread
@@ -271,7 +271,7 @@ class AccountActivity : Activity() {
                     }
                 }
                 mainHandler.post {
-                    tvSyncStatus.text = "Gagal: Respons HTTP ${conn.responseCode}"
+                    tvSyncStatus.text = "Failed: HTTP ${conn.responseCode}"
                     tvSyncStatus.setTextColor(Color.parseColor("#EF4444"))
                 }
             } catch (e: Exception) {
@@ -285,9 +285,9 @@ class AccountActivity : Activity() {
 
     private fun performLogout() {
         AlertDialog.Builder(this)
-            .setTitle("Konfirmasi Logout")
-            .setMessage("Apakah Anda yakin ingin keluar? Token sesi Anda akan dihapus.")
-            .setPositiveButton("Logout") { _, _ ->
+            .setTitle("Confirm Sign Out")
+            .setMessage("Are you sure you want to sign out? Your session token will be removed.")
+            .setPositiveButton("Sign Out") { _, _ ->
                 if (StabirushVpnService.isRunning) {
                     val stopIntent = Intent(this, StabirushVpnService::class.java).apply {
                         action = StabirushVpnService.ACTION_DISCONNECT
@@ -301,7 +301,7 @@ class AccountActivity : Activity() {
                 startActivity(intent)
                 finish()
             }
-            .setNegativeButton("Batal", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
