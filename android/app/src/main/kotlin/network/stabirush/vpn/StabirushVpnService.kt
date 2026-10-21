@@ -68,6 +68,7 @@ class StabirushVpnService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private var tunnelThread: Thread? = null
     @Volatile private var currentTunnelSocket: Socket? = null
+    @Volatile private var currentDatagramSocket: DatagramSocket? = null
     @Volatile private var currentWgHandle: Int = -1
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -170,6 +171,7 @@ class StabirushVpnService : VpnService() {
 
                 isRunning = true
                 val isExplicitTcp = (requestedTransport == "wstunnel" || requestedTransport == "tcp")
+                val isExplicitQuic = (requestedTransport == "quic")
 
                 if (isExplicitTcp) {
                     // Explicit TCP/TLS 443 Tunnel Mode
@@ -211,6 +213,43 @@ class StabirushVpnService : VpnService() {
                     val tunOut = FileOutputStream(pfd.fileDescriptor)
 
                     runTcpTunnelLoop(cleanHost, serverIp, effectiveIp, routingMode, tokenToSend, tunIn, tunOut)
+                } else if (isExplicitQuic) {
+                    // Explicit QUIC / Fast UDP Datagram Mode
+                    activeTransport = "quic"
+                    isFallbackActive = false
+                    updateNotification("Menghubungkan ke QUIC / Fast UDP...")
+                    broadcastStatus("Menghubungkan ke QUIC...")
+                    Log.d("Stabirush", "Explicit QUIC mode requested. Establishing TUN for QUIC 51821...")
+
+                    val builder = Builder()
+                    val sLabel = if (routingMode == "secure") "Secure 0.0.0.0/0 (QUIC)" else "Split: $activeSubnetNames (QUIC)"
+                    builder.setSession("Stabirush · $sLabel")
+                    builder.setMtu(1280)
+                    builder.addAddress(effectiveIp, 32)
+
+                    if (routingMode.equals("secure", ignoreCase = true) || routingMode.equals("full", ignoreCase = true)) {
+                        builder.addRoute("0.0.0.0", 0)
+                        builder.addDnsServer("10.10.0.1")
+                        builder.addDnsServer("1.1.1.1")
+                    } else {
+                        addSplitSubnetRoutes(builder, activeSubnetsCidr)
+                        builder.addRoute("10.10.0.1", 32)
+                        builder.addRoute("10.0.0.154", 32)
+                        builder.addDnsServer("10.10.0.1")
+                    }
+
+                    val pfd = builder.establish()
+                    if (pfd == null) {
+                        isRunning = false
+                        broadcastStatus("Permission ditolak atau gagal membuat tun0")
+                        stopSelf()
+                        return@Thread
+                    }
+                    vpnInterface = pfd
+                    val tunIn = FileInputStream(pfd.fileDescriptor)
+                    val tunOut = FileOutputStream(pfd.fileDescriptor)
+
+                    runUdpTunnelLoop(serverIp, effectiveIp, routingMode, tokenToSend, tunIn, tunOut)
                 } else {
                     // Default WireGuard UDP 51820 Mode
                     activeTransport = "wireguard"
@@ -665,6 +704,172 @@ class StabirushVpnService : VpnService() {
         }
     }
 
+    private fun runUdpTunnelLoop(
+        serverIp: String,
+        cleanIp: String,
+        routingMode: String,
+        token: String,
+        tunIn: FileInputStream,
+        tunOut: FileOutputStream
+    ) {
+        val tunReadBuf = ByteArray(32767)
+        var tunClosed = false
+
+        while (isRunning && !tunClosed && !Thread.currentThread().isInterrupted) {
+            var sock: DatagramSocket? = null
+            val sessionAlive = AtomicBoolean(true)
+            try {
+                val tStart = System.currentTimeMillis()
+                val targetPort = 51821
+                sock = DatagramSocket()
+                protect(sock)
+                sock.soTimeout = 3500
+                currentDatagramSocket = sock
+
+                val srvAddr = InetSocketAddress(serverIp, targetPort)
+                Log.d("Stabirush", "Initiating QUIC/Fast-UDP handshake to $serverIp:$targetPort...")
+
+                // Send SBRA handshake (magic 4 bytes + tokLen 1 byte + token)
+                val tokBytes = token.toByteArray(Charsets.UTF_8)
+                val req = ByteArray(5 + tokBytes.size)
+                req[0] = 'S'.code.toByte()
+                req[1] = 'B'.code.toByte()
+                req[2] = 'R'.code.toByte()
+                req[3] = 'A'.code.toByte()
+                req[4] = tokBytes.size.toByte()
+                System.arraycopy(tokBytes, 0, req, 5, tokBytes.size)
+
+                val pSend = DatagramPacket(req, req.size, srvAddr)
+                sock.send(pSend)
+                txPackets.incrementAndGet()
+                txBytes.addAndGet(req.size.toLong())
+
+                // Receive SBRO response
+                val respBuf = ByteArray(16)
+                val pResp = DatagramPacket(respBuf, respBuf.size)
+                sock.receive(pResp)
+                val magic = String(respBuf, 0, 4, Charsets.US_ASCII)
+                if (magic != "SBRO") {
+                    throw Exception("Handshake response tidak valid: $magic")
+                }
+
+                lastPingMs = (System.currentTimeMillis() - tStart).toInt().coerceAtLeast(1)
+                rxPackets.incrementAndGet()
+                rxBytes.addAndGet(pResp.length.toLong())
+
+                // Handshake verified!
+                isVerified = true
+                sock.soTimeout = 0 // continuous receive
+                val mLabel = if (routingMode.equals("secure", ignoreCase = true)) "🔒 Secure (0.0.0.0/0)" else "Split ($activeSubnetNames)"
+                updateNotification("$mLabel · 🚀 QUIC:51821 · $cleanIp")
+                broadcastStatus("Connected")
+
+                val finalSock = sock
+
+                // Downlink thread: Server -> Android tun0
+                val downlink = Thread({
+                    val recvBuf = ByteArray(65535)
+                    val recvPacket = DatagramPacket(recvBuf, recvBuf.size)
+                    try {
+                        while (isRunning && sessionAlive.get()) {
+                            finalSock.receive(recvPacket)
+                            val len = recvPacket.length
+                            if (len < 4) continue
+                            val pktMagic = String(recvBuf, 0, 4, Charsets.US_ASCII)
+                            if (pktMagic == "SBRK") {
+                                // Keepalive pong
+                                rxPackets.incrementAndGet()
+                                continue
+                            }
+                            if (pktMagic == "SBRU" && len > 4) {
+                                val dataLen = len - 4
+                                val rx = rxPackets.incrementAndGet()
+                                rxBytes.addAndGet(dataLen.toLong())
+                                try {
+                                    synchronized(tunOut) {
+                                        tunOut.write(recvBuf, 4, dataLen)
+                                    }
+                                } catch (we: Exception) {
+                                    Log.w("Stabirush", "tunOut write warning: ${we.message}")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("Stabirush", "QUIC Downlink loop ended: ${e.message}")
+                        sessionAlive.set(false)
+                    }
+                }, "StabirushQuicDownlink")
+                downlink.isDaemon = true
+                downlink.start()
+
+                // Keepalive thread: ping every 10 seconds
+                val keepalive = Thread({
+                    val pingBytes = "SBRK".toByteArray(Charsets.US_ASCII)
+                    val pingPacket = DatagramPacket(pingBytes, pingBytes.size, srvAddr)
+                    try {
+                        while (isRunning && sessionAlive.get()) {
+                            Thread.sleep(10000)
+                            if (!isRunning || !sessionAlive.get()) break
+                            finalSock.send(pingPacket)
+                            txPackets.incrementAndGet()
+                            txBytes.addAndGet(pingBytes.size.toLong())
+                        }
+                    } catch (e: Exception) {
+                        sessionAlive.set(false)
+                    }
+                }, "StabirushQuicKeepalive")
+                keepalive.isDaemon = true
+                keepalive.start()
+
+                // Uplink loop: Android tun0 -> Server
+                while (isRunning && sessionAlive.get() && !tunClosed && !Thread.currentThread().isInterrupted) {
+                    val n = try {
+                        tunIn.read(tunReadBuf)
+                    } catch (e: Exception) {
+                        tunClosed = true
+                        -1
+                    }
+                    if (n > 0) {
+                        if ((tunReadBuf[0].toInt() shr 4) != 4) continue
+                        val tx = txPackets.incrementAndGet()
+                        txBytes.addAndGet(n.toLong())
+                        val pkt = ByteArray(4 + n)
+                        pkt[0] = 'S'.code.toByte()
+                        pkt[1] = 'B'.code.toByte()
+                        pkt[2] = 'R'.code.toByte()
+                        pkt[3] = 'U'.code.toByte()
+                        System.arraycopy(tunReadBuf, 0, pkt, 4, n)
+                        val sendPacket = DatagramPacket(pkt, pkt.size, srvAddr)
+                        try {
+                            finalSock.send(sendPacket)
+                        } catch (e: Exception) {
+                            Log.e("Stabirush", "QUIC Uplink send error: ${e.message}")
+                            sessionAlive.set(false)
+                            break
+                        }
+                    } else if (n < 0) {
+                        tunClosed = true
+                        break
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("Stabirush", "QUIC session error: ${e.message}", e)
+                if (isRunning && !tunClosed) {
+                    broadcastStatus("Menghubungkan ulang QUIC...")
+                    try { Thread.sleep(2000) } catch (ie: InterruptedException) { break }
+                }
+            } finally {
+                sessionAlive.set(false)
+                try { sock?.close() } catch (ignored: Exception) {}
+                currentDatagramSocket = null
+            }
+
+            if (tunClosed || Thread.currentThread().isInterrupted || !isRunning) {
+                break
+            }
+        }
+    }
+
     private fun readHttpHeaders(input: InputStream): Pair<Int, String> {
         var state = 0
         var count = 0
@@ -857,6 +1062,11 @@ class StabirushVpnService : VpnService() {
             currentTunnelSocket?.close()
         } catch (ignored: Exception) {}
         currentTunnelSocket = null
+
+        try {
+            currentDatagramSocket?.close()
+        } catch (ignored: Exception) {}
+        currentDatagramSocket = null
 
         tunnelThread?.interrupt()
         tunnelThread = null

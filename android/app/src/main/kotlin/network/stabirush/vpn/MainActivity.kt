@@ -80,6 +80,7 @@ class MainActivity : Activity() {
     private lateinit var radioSecure: TextView
 
     private lateinit var btnTransUdp: Button
+    private lateinit var btnTransQuic: Button
     private lateinit var btnTransTcp: Button
     private lateinit var btnTransAuto: Button
 
@@ -511,27 +512,35 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40))
         }
         btnTransUdp = Button(this).apply {
-            text = "⚡ WireGuard"
+            text = "⚡ WG"
             setAllCaps(false)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.38f).apply { marginEnd = dp(4) }
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.26f).apply { marginEnd = dp(4) }
             setOnClickListener { setTransportMode("udp", restartIfConnected = true) }
         }
-        btnTransTcp = Button(this).apply {
-            text = "🛡️ TCP:443"
+        btnTransQuic = Button(this).apply {
+            text = "🚀 QUIC"
             setAllCaps(false)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.30f).apply { marginEnd = dp(4) }
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.26f).apply { marginEnd = dp(4) }
+            setOnClickListener { setTransportMode("quic", restartIfConnected = true) }
+        }
+        btnTransTcp = Button(this).apply {
+            text = "🛡️ TCP"
+            setAllCaps(false)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.26f).apply { marginEnd = dp(4) }
             setOnClickListener { setTransportMode("wstunnel", restartIfConnected = true) }
         }
         btnTransAuto = Button(this).apply {
             text = "Auto"
             setAllCaps(false)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.32f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.22f)
             setOnClickListener { setTransportMode("auto", restartIfConnected = true) }
         }
         transGrid.addView(btnTransUdp)
+        transGrid.addView(btnTransQuic)
         transGrid.addView(btnTransTcp)
         transGrid.addView(btnTransAuto)
         content.addView(transGrid)
@@ -673,6 +682,7 @@ class MainActivity : Activity() {
         if (restartIfConnected && StabirushVpnService.isRunning) {
             launchVpnService()
             val label = when (mode) {
+                "quic" -> "🚀 QUIC (UDP 8443)"
                 "wstunnel", "tcp" -> "🛡️ TCP:443 (TLS)"
                 "udp", "wireguard" -> "⚡ WireGuard (UDP 51820)"
                 else -> "Auto (Fallback)"
@@ -814,7 +824,10 @@ class MainActivity : Activity() {
             toggleTrafficStats.text = "↑ ${formatBytes(txBytes)} ($txPackets pkts)  ·  ↓ ${formatBytes(rxBytes)} ($rxPackets pkts)"
 
             toggleTransportBadge.visibility = View.VISIBLE
-            if (isFallback || activeTrans.contains("tcp")) {
+            if (activeTrans == "quic") {
+                toggleTransportBadge.text = "🚀 Protocol: QUIC / UDP Datagram (Port 51821)"
+                toggleTransportBadge.setTextColor(Color.parseColor("#38BDF8"))
+            } else if (isFallback || activeTrans.contains("tcp")) {
                 toggleTransportBadge.text = "🛡️ Protocol: TCP/TLS 443 (Fallback Aktif)"
                 toggleTransportBadge.setTextColor(Color.parseColor("#F59E0B"))
             } else {
@@ -847,7 +860,11 @@ class MainActivity : Activity() {
             toggleTrafficStats.text = "↑ ${formatBytes(txBytes)} ($txPackets pkts)  ·  ↓ ${formatBytes(rxBytes)} (Menunggu respon...)"
 
             toggleTransportBadge.visibility = View.VISIBLE
-            toggleTransportBadge.text = if (isFallback) "Mengalihkan ke TCP 443..." else "Menguji port UDP..."
+            toggleTransportBadge.text = when {
+                activeTrans == "quic" -> "Menghubungkan via QUIC (UDP 51821)..."
+                isFallback -> "Mengalihkan ke TCP 443..."
+                else -> "Menguji port UDP..."
+            }
             toggleTransportBadge.setTextColor(Color.parseColor("#F59E0B"))
         } else {
             toggleCardBg.setColor(Color.parseColor("#0F172A"))
@@ -893,6 +910,7 @@ class MainActivity : Activity() {
         val curTrans = prefs.getString("transportMode", "auto") ?: "auto"
         styleTransportButton(btnTransAuto, curTrans == "auto")
         styleTransportButton(btnTransUdp, curTrans == "udp" || curTrans == "wireguard")
+        styleTransportButton(btnTransQuic, curTrans == "quic")
         styleTransportButton(btnTransTcp, curTrans == "wstunnel" || curTrans == "tcp")
     }
 
