@@ -1370,6 +1370,30 @@ func FormatBytes(b int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
+// ResetPeerHandshake resets the peer handshake in the WireGuard kernel runtime
+// by quickly re-adding the peer with its allowed IPs.
+func (m *Manager) ResetPeerHandshake(pubKey string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cf, err := ParseConfigFile(m.cfg.WGConfigFile)
+	if err != nil {
+		return err
+	}
+
+	for _, peer := range cf.Peers {
+		if peer.PublicKey == pubKey {
+			cleanIPs := strings.ReplaceAll(peer.AllowedIPs, " ", "")
+			_ = exec.Command("wg", "set", m.cfg.WGInterface, "peer", pubKey, "remove").Run()
+			if peer.Enabled {
+				_ = exec.Command("wg", "set", m.cfg.WGInterface, "peer", pubKey, "allowed-ips", cleanIPs).Run()
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("peer not found: %s", pubKey)
+}
+
 func formatDuration(d time.Duration) string {
 	d = d.Round(time.Second)
 	h := d / time.Hour

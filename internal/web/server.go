@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"wireguard-ui/internal/auth"
@@ -286,8 +287,9 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/config/raw", s.handleRawConfig)
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
 	s.mux.HandleFunc("/api/extension/ping", s.handleExtensionPing)
-	s. mux.HandleFunc("/api/android/pac", s.handleAndroidPAC)
+	s.mux.HandleFunc("/api/android/pac", s.handleAndroidPAC)
 	s.mux.HandleFunc("/api/android/sync", s.handleAndroidSync)
+	s.mux.HandleFunc("/api/android/disconnect", s.handleAndroidDisconnect)
 	s.mux.HandleFunc("/api/android/tunnel", s.handleAndroidTunnel)
 	initAndroidTunBridge(s.authMgr)
 
@@ -702,6 +704,55 @@ func (s *Server) handleAndroidSync(w http.ResponseWriter, r *http.Request) {
 			"userId":   tok.UserID,
 			"device":   tok.DeviceName,
 		},
+	})
+}
+
+// handleAndroidDisconnect marks an Android peer offline immediately
+func (s *Server) handleAndroidDisconnect(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("X-WG-Token")
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
+	tok, ok := s.authMgr.ValidateToken(token)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	ip := strings.TrimSpace(r.URL.Query().Get("ip"))
+	if ip == "" && tok.AllocatedIP != "" {
+		ip = tok.AllocatedIP
+	}
+
+	// 1. Unregister active tunnel session if any (TCP/UDP bridge)
+	if globalTunBridge != nil && ip != "" {
+		globalTunBridge.mu.Lock()
+		if sess, exists := globalTunBridge.clients[ip]; exists {
+			if globalTunBridge.cumRx == nil {
+				globalTunBridge.cumRx = make(map[string]int64)
+			}
+			if globalTunBridge.cumTx == nil {
+				globalTunBridge.cumTx = make(map[string]int64)
+			}
+			globalTunBridge.cumRx[ip] += atomic.LoadInt64(&sess.rxBytes)
+			globalTunBridge.cumTx[ip] += atomic.LoadInt64(&sess.txBytes)
+			delete(globalTunBridge.clients, ip)
+		}
+		globalTunBridge.mu.Unlock()
+	}
+
+	// 2. Reset WireGuard native peer handshake in kernel
+	pubKey := strings.TrimSpace(r.URL.Query().Get("pubkey"))
+	if pubKey == "" && tok.PublicKey != "" {
+		pubKey = tok.PublicKey
+	}
+	if pubKey != "" {
+		_ = s.mgr.ResetPeerHandshake(pubKey)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Peer marked disconnected",
 	})
 }
 

@@ -1034,10 +1034,39 @@ class StabirushVpnService : VpnService() {
     }
 
     private fun stopVpn() {
+        notifyServerDisconnect()
         stopVpnInternal()
         stopForeground(true)
         stopSelf()
         broadcastStatus("Disconnected")
+    }
+
+    private fun notifyServerDisconnect() {
+        val host = activeServerHost
+        val ip = activeAssignedIp.split("/")[0].trim()
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val token = prefs.getString("authToken", "") ?: ""
+        val pubKey = prefs.getString("selectedPubKey", "") ?: ""
+        if (host.isBlank() || token.isBlank()) return
+
+        Thread({
+            try {
+                val cleanHost = host.removePrefix("https://").removePrefix("http://").trimEnd('/')
+                val proto = if (cleanHost.matches(Regex("^[0-9.]+$"))) "http" else "https"
+                val url = URL("$proto://$cleanHost/api/android/disconnect?ip=$ip&pubkey=$pubKey")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.setRequestProperty("X-WG-Token", token)
+                val code = conn.responseCode
+                logD("Server disconnect notification response: $code")
+                conn.disconnect()
+            } catch (e: Exception) {
+                logW("Failed to notify server of disconnect: ${e.message}")
+            }
+        }, "StabirushDisconnectNotifyThread").start()
     }
 
     private fun stopVpnInternal() {
