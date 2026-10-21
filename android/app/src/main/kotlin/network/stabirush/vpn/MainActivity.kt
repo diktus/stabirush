@@ -185,6 +185,9 @@ class MainActivity : Activity() {
         if (prefs.getString("clientPrivateKey", "").isNullOrEmpty()) {
             prefs.edit().putString("clientPrivateKey", "IEyVQmA+ijVcRkF2Ba3LY2d3/eu4HvrcBYD2ZfXz8UU=").apply()
         }
+        if (prefs.getString("serverEndpoint", "").isNullOrEmpty()) {
+            prefs.edit().putString("serverEndpoint", "168.110.193.226:51820").apply()
+        }
         routingMode = prefs.getString("routingMode", "split") ?: "split"
         transportMode = prefs.getString("transportMode", "auto") ?: "auto"
         assignedIp = prefs.getString("assignedIp", "10.10.0.3") ?: "10.10.0.3"
@@ -1055,6 +1058,11 @@ class MainActivity : Activity() {
                 val srvPubKey = root.optString("serverPublicKey", "")
                 if (srvPubKey.isNotEmpty()) {
                     ed.putString("serverPublicKey", srvPubKey)
+                }
+
+                val srvEndpoint = root.optString("serverEndpoint", "")
+                if (srvEndpoint.isNotEmpty()) {
+                    ed.putString("serverEndpoint", srvEndpoint)
                 }
 
                 val nsArr = root.optJSONArray("namedSubnets")

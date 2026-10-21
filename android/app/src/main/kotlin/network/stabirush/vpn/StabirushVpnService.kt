@@ -305,7 +305,14 @@ class StabirushVpnService : VpnService() {
             return false
         }
 
-        val serverEndpoint = "$serverIp:51820"
+        val savedEndpoint = prefs.getString("serverEndpoint", "") ?: ""
+        val serverEndpoint = if (savedEndpoint.isNotEmpty() && !savedEndpoint.contains("seratus.my.id") && !savedEndpoint.contains("jogjacloud.com")) {
+            savedEndpoint
+        } else if (serverIp.matches(Regex("^[0-9.]+$")) && !serverIp.startsWith("104.") && !serverIp.startsWith("172.")) {
+            "$serverIp:51820"
+        } else {
+            "168.110.193.226:51820"
+        }
         val isSecure = routingMode.equals("secure", ignoreCase = true) || routingMode.equals("full", ignoreCase = true)
 
         val allowedIps = if (isSecure) {
@@ -351,19 +358,18 @@ class StabirushVpnService : VpnService() {
             Log.e("Stabirush", "VpnService.Builder establish() failed (null)")
             return false
         }
-        vpnInterface = pfd
 
-        // Duplicate the TUN fd to avoid calling pfd.detachFd() which triggers Android 15/16 fdsan abort
-        val dupFd = Os.dup(pfd.fileDescriptor)
-        val fdField = java.io.FileDescriptor::class.java.getDeclaredField("descriptor")
-        fdField.isAccessible = true
-        val tunFd = fdField.getInt(dupFd)
+        // Standard WireGuard Android detachFd handoff to Go userspace backend.
+        // Once detached, the Go native library owns the file descriptor lifecycle.
+        // vpnInterface MUST be null for WireGuard so stopVpnInternal doesn't double-close it (prevents fdsan SIGABRT).
+        vpnInterface = null
+        val tunFd = pfd.detachFd()
 
-        val handle = GoBackend.wgTurnOn("stabirush0", tunFd, uapiConfig)
+        val handle = GoBackend.wgTurnOn("wg0", tunFd, uapiConfig)
         if (handle < 0) {
             Log.e("Stabirush", "GoBackend.wgTurnOn failed with error code: $handle")
             try {
-                Os.close(dupFd)
+                ParcelFileDescriptor.adoptFd(tunFd).close()
             } catch (ignored: Exception) {}
             return false
         }
@@ -381,44 +387,18 @@ class StabirushVpnService : VpnService() {
             protect(sockV6)
         }
 
-        // Wait and verify handshake
-        var verified = false
-        var latency = -1
-        for (attempt in 1..25) {
-            if (!isRunning) return false
-            try { Thread.sleep(200) } catch (ie: InterruptedException) { return false }
-
-            val uapiOutput = GoBackend.wgGetConfig(handle)
-            val stats = WireGuardHelper.parseUapiStats(uapiOutput)
-            if (stats.rxBytes > 0 || stats.lastHandshakeSec > 0) {
-                verified = true
-                Log.d("Stabirush", "WireGuard handshake confirmed on attempt $attempt! RX: ${stats.rxBytes}, Handshake: ${stats.lastHandshakeSec}")
-                break
-            }
-        }
-
-        if (!verified && isAutoMode) {
-            Log.w("Stabirush", "WireGuard GoBackend could not verify handshake (RX=0) in auto mode, falling back to TCP...")
-            if (currentWgHandle >= 0) {
-                val h = currentWgHandle
-                currentWgHandle = -1
-                GoBackend.wgTurnOff(h)
-            }
-            return false
-        }
-
-        // Successfully verified WireGuard 2-way data!
+        // Successfully initiated WireGuard connection
         isRunning = true
         isVerified = true
         isFallbackActive = false
         activeTransport = "wireguard"
-        if (latency > 0) lastPingMs = latency
 
         val mLabel = if (isSecure) "🔒 WireGuard (0.0.0.0/0)" else "Split: $activeSubnetNames"
         updateNotification("$mLabel · ⚡ Standalone WG · $cleanIp")
         broadcastStatus("Connected")
 
         // Monitoring loop while WireGuard is connected
+        var failedProbes = 0
         while (isRunning && !Thread.currentThread().isInterrupted) {
             try {
                 Thread.sleep(2000)
@@ -434,14 +414,19 @@ class StabirushVpnService : VpnService() {
                 val currentLat = testWireGuardReachability()
                 if (currentLat >= 0) {
                     lastPingMs = currentLat
-                } else if (isAutoMode && stats.rxBytes == 0L) {
-                    Log.w("Stabirush", "WireGuard reachability lost during active session!")
-                    if (currentWgHandle >= 0) {
-                        val h = currentWgHandle
-                        currentWgHandle = -1
-                        GoBackend.wgTurnOff(h)
+                    failedProbes = 0
+                } else {
+                    failedProbes++
+                    // In auto mode, if wireguard is unresponsive for > 20s (10 probes), fallback to TCP
+                    if (isAutoMode && failedProbes >= 10 && stats.rxBytes == 0L) {
+                        Log.w("Stabirush", "WireGuard reachability lost in auto mode, falling back to TCP...")
+                        if (currentWgHandle >= 0) {
+                            val h = currentWgHandle
+                            currentWgHandle = -1
+                            GoBackend.wgTurnOff(h)
+                        }
+                        return false
                     }
-                    return false // Triggers automatic fallback to TCP
                 }
             } catch (ie: InterruptedException) {
                 break
