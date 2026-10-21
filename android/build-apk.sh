@@ -30,11 +30,12 @@ echo "[1/5] Compiling resources with aapt2..."
 
 echo "[2/5] Compiling Kotlin sources with kotlinc..."
 KT_SOURCES=$(find "$MAIN_DIR/kotlin" -name "*.kt")
+GEN_SOURCES=$(find "$BUILD_DIR/gen" -name "*.java" 2>/dev/null || true)
 "$KOTLINC" \
-  -cp "$ANDROID_JAR:$BUILD_DIR/gen" \
+  -cp "$ANDROID_JAR" \
   -jvm-target 1.8 \
   -d "$BUILD_DIR/obj" \
-  $KT_SOURCES
+  $KT_SOURCES $GEN_SOURCES
 
 echo "[3/5] Converting bytecode to DEX with d8..."
 CLASS_FILES=$(find "$BUILD_DIR/obj" -name "*.class")

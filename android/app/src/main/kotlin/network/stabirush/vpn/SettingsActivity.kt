@@ -10,6 +10,8 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -80,26 +82,26 @@ class SettingsActivity : Activity() {
         // Menu Group Card
         val menuCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = roundedRect(Color.parseColor("#111827"), dp(14), Color.parseColor("#1F2937"))
+            background = roundedRect(Color.parseColor("#111827"), dp(16), Color.parseColor("#1F2937"))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        addMenuItem(menuCard, "📶", "Aturan Wi-Fi Otomatis", "Auto-switch profil berdasarkan nama SSID Wi-Fi") {
+        addModernMenuItem(menuCard, R.drawable.ic_wifi, Color.parseColor("#38BDF8"), "Aturan Wi-Fi Otomatis", "Auto-switch profil berdasarkan nama SSID Wi-Fi") {
             startActivity(Intent(this, WifiRulesActivity::class.java))
         }
         addDivider(menuCard)
 
-        addMenuItem(menuCard, "🌐", "Kelola Subnet Private", "Daftar CIDR subnet kantor/CCTV untuk split tunnel") {
+        addModernMenuItem(menuCard, R.drawable.ic_hub, Color.parseColor("#0EA5E9"), "Kelola Subnet Private", "Daftar CIDR subnet kantor/CCTV untuk split tunnel") {
             startActivity(Intent(this, SubnetManagerActivity::class.java))
         }
         addDivider(menuCard)
 
-        addMenuItem(menuCard, "📹", "Diagnostik & Tes CCTV", "Uji latensi RTSP port 8090 / 554 dan throughput kamera") {
+        addModernMenuItem(menuCard, R.drawable.ic_cctv, Color.parseColor("#10B981"), "Diagnostik & Tes CCTV", "Uji latensi RTSP port 8090 / 554 dan throughput kamera") {
             startActivity(Intent(this, CctvTesterActivity::class.java))
         }
         addDivider(menuCard)
 
-        addMenuItem(menuCard, "🛡️", "Server & Akun", "Status endpoint gateway, sinkronisasi, dan token akun") {
+        addModernMenuItem(menuCard, R.drawable.ic_account, Color.parseColor("#38BDF8"), "Server & Akun", "Status endpoint gateway, sinkronisasi, dan token akun") {
             startActivity(Intent(this, AccountActivity::class.java))
         }
 
@@ -110,7 +112,26 @@ class SettingsActivity : Activity() {
         setContentView(root)
     }
 
-    private fun addMenuItem(parent: LinearLayout, icon: String, title: String, subtitle: String, onClick: () -> Unit) {
+    private fun createSoftTintedBadge(iconResId: Int, tintColor: Int, sizeDp: Int = 36, cornerDp: Int = 10): FrameLayout {
+        val frame = FrameLayout(this).apply {
+            val d = dp(sizeDp)
+            layoutParams = FrameLayout.LayoutParams(d, d)
+            val bgAlpha = Color.argb(38, Color.red(tintColor), Color.green(tintColor), Color.blue(tintColor))
+            val strokeAlpha = Color.argb(85, Color.red(tintColor), Color.green(tintColor), Color.blue(tintColor))
+            background = roundedRect(bgAlpha, dp(cornerDp), strokeAlpha)
+        }
+        val iv = ImageView(this).apply {
+            setImageResource(iconResId)
+            setColorFilter(tintColor)
+            val p = dp(sizeDp / 4)
+            setPadding(p, p, p, p)
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+        frame.addView(iv)
+        return frame
+    }
+
+    private fun addModernMenuItem(parent: LinearLayout, iconRes: Int, iconTint: Int, title: String, subtitle: String, onClick: () -> Unit) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -120,16 +141,14 @@ class SettingsActivity : Activity() {
             setOnClickListener { onClick() }
         }
 
-        val iconTv = TextView(this).apply {
-            text = icon
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
-            setPadding(0, 0, dp(14), 0)
-        }
-        row.addView(iconTv)
+        val badge = createSoftTintedBadge(iconRes, iconTint, sizeDp = 36, cornerDp = 10)
+        row.addView(badge)
 
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(14)
+            }
         }
         val tTv = TextView(this).apply {
             text = title
@@ -162,7 +181,7 @@ class SettingsActivity : Activity() {
         val div = View(this).apply {
             setBackgroundColor(Color.parseColor("#1F2937"))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1)).apply {
-                marginStart = dp(52)
+                marginStart = dp(62)
             }
         }
         parent.addView(div)

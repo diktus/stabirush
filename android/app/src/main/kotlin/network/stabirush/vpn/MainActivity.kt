@@ -24,6 +24,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -62,26 +63,35 @@ class MainActivity : Activity() {
     private lateinit var drawerPeerText: TextView
     private lateinit var drawerIpText: TextView
 
-    // Top Mode Selector (Split vs Secure)
-    private lateinit var btnModeSplit: Button
-    private lateinit var btnModeSecure: Button
+    // Top Segmented Mode Cards
+    private lateinit var cardModeSplit: LinearLayout
+    private lateinit var cardModeSecure: LinearLayout
+    private lateinit var badgeModeSplit: FrameLayout
+    private lateinit var badgeModeSecure: FrameLayout
+    private lateinit var tvModeSplitTitle: TextView
+    private lateinit var tvModeSecureTitle: TextView
 
     // Center Hero Power Button
     private lateinit var heroPowerRing: FrameLayout
     private lateinit var heroPowerCircle: FrameLayout
-    private lateinit var heroPowerIcon: TextView
+    private lateinit var heroPowerIcon: ImageView
     private lateinit var heroStatusTitle: TextView
     private lateinit var heroStatusSubtitle: TextView
 
     // Bento Grid Cards
     private lateinit var tvBentoTrafficVal: TextView
     private lateinit var tvBentoTrafficSub: TextView
+    private lateinit var badgeTraffic: FrameLayout
     private lateinit var tvBentoLatencyVal: TextView
     private lateinit var tvBentoLatencyDot: View
+    private lateinit var badgeLatency: FrameLayout
     private lateinit var tvBentoProtocolVal: TextView
     private lateinit var tvBentoProtocolSub: TextView
+    private lateinit var badgeProtocol: FrameLayout
+    private lateinit var ivBentoProtocol: ImageView
     private lateinit var tvBentoIpVal: TextView
     private lateinit var tvBentoIpSub: TextView
+    private lateinit var badgeIp: FrameLayout
 
     // Transport Bar
     private lateinit var btnTransUdp: Button
@@ -238,7 +248,7 @@ class MainActivity : Activity() {
             layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
 
-        // 1. App Bar Header (Hamburger ☰ + Brand + Sync ↻)
+        // 1. App Bar Header (Hamburger Menu + Brand + Sync)
         val appBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -246,30 +256,12 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.parseColor("#0A0E17"))
         }
 
-        // Hamburger Menu Button (3 Horizontal Lines)
-        val btnHamburger = FrameLayout(this).apply {
-            val d = dp(38)
-            layoutParams = LinearLayout.LayoutParams(d, d)
-            background = roundedRect(Color.parseColor("#111827"), dp(10), Color.parseColor("#1F2937"))
+        // Hamburger Menu Button wrapped in Soft-Tinted Badge
+        val btnHamburger = createSoftTintedBadge(R.drawable.ic_menu, Color.parseColor("#38BDF8"), sizeDp = 40, cornerDp = 12).apply {
             isClickable = true
             isFocusable = true
             setOnClickListener { openDrawer() }
         }
-        val linesContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        }
-        for (i in 0..2) {
-            val line = View(this).apply {
-                background = roundedRect(Color.parseColor("#38BDF8"), dp(2), Color.TRANSPARENT)
-                val lp = LinearLayout.LayoutParams(dp(18), dp(2))
-                if (i > 0) lp.topMargin = dp(4)
-                layoutParams = lp
-            }
-            linesContainer.addView(line)
-        }
-        btnHamburger.addView(linesContainer)
         appBar.addView(btnHamburger)
 
         // Title Center
@@ -296,23 +288,12 @@ class MainActivity : Activity() {
         titleBox.addView(brandSub)
         appBar.addView(titleBox)
 
-        // Sync Refresh Button (Right)
-        val btnSync = FrameLayout(this).apply {
-            val d = dp(38)
-            layoutParams = LinearLayout.LayoutParams(d, d)
-            background = roundedRect(Color.parseColor("#111827"), dp(10), Color.parseColor("#1F2937"))
+        // Sync Refresh Button wrapped in Soft-Tinted Badge
+        val btnSync = createSoftTintedBadge(R.drawable.ic_sync, Color.parseColor("#38BDF8"), sizeDp = 40, cornerDp = 12).apply {
             isClickable = true
             isFocusable = true
             setOnClickListener { syncFromServer(showToastMsg = true) }
         }
-        val syncIcon = TextView(this).apply {
-            text = "↻"
-            setTextColor(Color.parseColor("#38BDF8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
-            gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-        }
-        btnSync.addView(syncIcon)
         appBar.addView(btnSync)
 
         mainScreen.addView(appBar)
@@ -334,34 +315,56 @@ class MainActivity : Activity() {
         val modeContainer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(4), dp(4), dp(4), dp(4))
-            background = roundedRect(Color.parseColor("#111827"), dp(14), Color.parseColor("#1F2937"))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44))
+            background = roundedRect(Color.parseColor("#111827"), dp(16), Color.parseColor("#1F2937"))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48))
         }
 
-        btnModeSplit = Button(this).apply {
-            text = "🌐 Split Tunnel"
-            setAllCaps(false)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            typeface = Typeface.DEFAULT_BOLD
+        // Split Mode Card
+        cardModeSplit = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { marginEnd = dp(4) }
+            isClickable = true
+            isFocusable = true
             setOnClickListener { setRoutingMode("split", restartIfConnected = true) }
         }
-
-        btnModeSecure = Button(this).apply {
-            text = "🔒 Secure 0.0.0.0/0"
-            setAllCaps(false)
+        badgeModeSplit = createSoftTintedBadge(R.drawable.ic_call_split, Color.parseColor("#38BDF8"), sizeDp = 26, cornerDp = 8)
+        tvModeSplitTitle = TextView(this).apply {
+            text = "Split Tunnel"
+            setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(8), 0, 0, 0)
+        }
+        cardModeSplit.addView(badgeModeSplit)
+        cardModeSplit.addView(tvModeSplitTitle)
+
+        // Secure Full Mode Card
+        cardModeSecure = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f)
+            isClickable = true
+            isFocusable = true
             setOnClickListener { setRoutingMode("secure", restartIfConnected = true) }
         }
+        badgeModeSecure = createSoftTintedBadge(R.drawable.ic_rocket_launch, Color.parseColor("#10B981"), sizeDp = 26, cornerDp = 8)
+        tvModeSecureTitle = TextView(this).apply {
+            text = "Secure 0.0.0.0/0"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(8), 0, 0, 0)
+        }
+        cardModeSecure.addView(badgeModeSecure)
+        cardModeSecure.addView(tvModeSecureTitle)
 
-        modeContainer.addView(btnModeSplit)
-        modeContainer.addView(btnModeSecure)
+        modeContainer.addView(cardModeSplit)
+        modeContainer.addView(cardModeSecure)
         content.addView(modeContainer)
 
         // Spacer
-        content.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(24)))
+        content.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(22)))
 
         // ================= CENTER: HERO POWER BUTTON =================
         heroPowerRing = FrameLayout(this).apply {
@@ -382,12 +385,11 @@ class MainActivity : Activity() {
             setOnClickListener { toggleVpnConnection() }
         }
 
-        heroPowerIcon = TextView(this).apply {
-            text = "⏻"
-            setTextColor(Color.parseColor("#94A3B8"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 48f)
-            gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        heroPowerIcon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_power)
+            setColorFilter(Color.parseColor("#94A3B8"))
+            val iconSize = dp(46)
+            layoutParams = FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER)
             isClickable = true
             isFocusable = true
             setOnClickListener { toggleVpnConnection() }
@@ -412,7 +414,7 @@ class MainActivity : Activity() {
             setTextColor(Color.parseColor("#94A3B8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
             gravity = Gravity.CENTER
-            setPadding(0, dp(4), 0, dp(22))
+            setPadding(0, dp(4), 0, dp(20))
         }
         content.addView(heroStatusSubtitle)
 
@@ -428,21 +430,33 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        // Card 1: Traffic (Tx/Rx)
-        val cardTraffic = createBentoCard("⬇ RX / ⬆ TX (LIVE)", "0 B / 0 B", "0 paket").also {
-            bentoRow1.addView(it.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
-            tvBentoTrafficVal = it.second
-            tvBentoTrafficSub = it.third
-        }
+        // Card 1: Traffic (Tx/Rx) with Soft-Tinted Pill Arrow Badge
+        val cardTrafficTuple = createModernBentoCard(
+            header = "THROUGHPUT",
+            iconRes = R.drawable.ic_throughput,
+            iconTint = Color.parseColor("#38BDF8"),
+            defVal = "0 B / 0 B",
+            defSub = "0 rx / 0 tx pkts"
+        )
+        bentoRow1.addView(cardTrafficTuple.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
+        tvBentoTrafficVal = cardTrafficTuple.second
+        tvBentoTrafficSub = cardTrafficTuple.third
+        badgeTraffic = cardTrafficTuple.fourth
 
-        // Card 2: Latency
-        val cardLatency = createBentoCardWithDot("⚡ LATENSI PING", "-- ms", "Gateway: 10.10.0.1").also {
-            bentoRow1.addView(it.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            tvBentoLatencyVal = it.second
-            tvBentoLatencyDot = it.third
-        }
+        // Card 2: Latency with Soft-Tinted ECG Pulse Wave Badge
+        val cardLatencyTuple = createModernBentoCardWithDot(
+            header = "LATENSI PING",
+            iconRes = R.drawable.ic_pulse,
+            iconTint = Color.parseColor("#10B981"),
+            defVal = "-- ms",
+            defSub = "GW: 10.10.0.1"
+        )
+        bentoRow1.addView(cardLatencyTuple.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        tvBentoLatencyVal = cardLatencyTuple.second
+        tvBentoLatencyDot = cardLatencyTuple.third
+        badgeLatency = cardLatencyTuple.fourth
+
         bentoCol.addView(bentoRow1)
-
         bentoCol.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(10)))
 
         // Row 2: Protocol + Virtual IP
@@ -451,21 +465,34 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
-        // Card 3: Transport Protocol
-        val cardProtocol = createBentoCard("🛡️ PROTOKOL", "Auto", "Noise_IK / QUIC").also {
-            bentoRow2.addView(it.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
-            tvBentoProtocolVal = it.second
-            tvBentoProtocolSub = it.third
-        }
+        // Card 3: Transport Protocol with Soft-Tinted Shield Badge
+        val cardProtocolTuple = createModernBentoCard(
+            header = "PROTOKOL",
+            iconRes = R.drawable.ic_shield_check,
+            iconTint = Color.parseColor("#38BDF8"),
+            defVal = "Auto",
+            defSub = "Noise_IK / QUIC"
+        )
+        bentoRow2.addView(cardProtocolTuple.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
+        tvBentoProtocolVal = cardProtocolTuple.second
+        tvBentoProtocolSub = cardProtocolTuple.third
+        badgeProtocol = cardProtocolTuple.fourth
+        ivBentoProtocol = badgeProtocol.getChildAt(0) as ImageView
 
-        // Card 4: Virtual IP
-        val cardIp = createBentoCard("🆔 VIRTUAL IP", assignedIp, "Split Active").also {
-            bentoRow2.addView(it.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            tvBentoIpVal = it.second
-            tvBentoIpSub = it.third
-        }
+        // Card 4: Virtual IP with Soft-Tinted Mesh Hub Badge
+        val cardIpTuple = createModernBentoCard(
+            header = "VIRTUAL IP",
+            iconRes = R.drawable.ic_hub,
+            iconTint = Color.parseColor("#0EA5E9"),
+            defVal = assignedIp,
+            defSub = "Split Active"
+        )
+        bentoRow2.addView(cardIpTuple.first, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        tvBentoIpVal = cardIpTuple.second
+        tvBentoIpSub = cardIpTuple.third
+        badgeIp = cardIpTuple.fourth
+
         bentoCol.addView(bentoRow2)
-
         content.addView(bentoCol)
 
         // Spacer
@@ -491,34 +518,34 @@ class MainActivity : Activity() {
 
         val transGrid = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(38))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40))
         }
 
         btnTransUdp = Button(this).apply {
             text = "⚡ WG"
             setAllCaps(false)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.26f).apply { marginEnd = dp(4) }
             setOnClickListener { setTransportMode("udp", restartIfConnected = true) }
         }
         btnTransQuic = Button(this).apply {
             text = "🚀 QUIC"
             setAllCaps(false)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.26f).apply { marginEnd = dp(4) }
             setOnClickListener { setTransportMode("quic", restartIfConnected = true) }
         }
         btnTransTcp = Button(this).apply {
             text = "🛡️ TCP"
             setAllCaps(false)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.26f).apply { marginEnd = dp(4) }
             setOnClickListener { setTransportMode("wstunnel", restartIfConnected = true) }
         }
         btnTransAuto = Button(this).apply {
             text = "Auto"
             setAllCaps(false)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 0.22f)
             setOnClickListener { setTransportMode("auto", restartIfConnected = true) }
         }
@@ -556,11 +583,19 @@ class MainActivity : Activity() {
             isFocusable = true
         }
 
-        // Drawer Header Card
+        // Drawer Header Card with Duotone Shield
         val dHeader = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(28), dp(20), dp(20))
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), dp(28), dp(18), dp(20))
             background = roundedRect(Color.parseColor("#111A2E"), 0, Color.TRANSPARENT)
+        }
+        val headerShieldBadge = createSoftTintedBadge(R.drawable.ic_shield_check, Color.parseColor("#10B981"), sizeDp = 44, cornerDp = 14)
+        dHeader.addView(headerShieldBadge)
+
+        val dHeaderCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) }
         }
         val dBadge = TextView(this).apply {
             text = "STABIRUSH SECURE"
@@ -572,20 +607,21 @@ class MainActivity : Activity() {
         drawerPeerText = TextView(this).apply {
             text = selectedPeerName
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(4), 0, 0)
+            setPadding(0, dp(2), 0, 0)
         }
         drawerIpText = TextView(this).apply {
             text = "IP: $assignedIp"
             setTextColor(Color.parseColor("#10B981"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             typeface = Typeface.MONOSPACE
-            setPadding(0, dp(2), 0, 0)
+            setPadding(0, dp(1), 0, 0)
         }
-        dHeader.addView(dBadge)
-        dHeader.addView(drawerPeerText)
-        dHeader.addView(drawerIpText)
+        dHeaderCol.addView(dBadge)
+        dHeaderCol.addView(drawerPeerText)
+        dHeaderCol.addView(drawerIpText)
+        dHeader.addView(dHeaderCol)
         sidebarDrawer.addView(dHeader)
 
         // Drawer Menu Items List
@@ -598,19 +634,19 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(16), dp(12), dp(16))
         }
 
-        addDrawerItem(dMenu, "📶", "Aturan Wi-Fi Otomatis", "Auto-switch profil Wi-Fi") {
+        addModernDrawerItem(dMenu, R.drawable.ic_wifi, Color.parseColor("#38BDF8"), "Aturan Wi-Fi Otomatis", "Auto-switch profil Wi-Fi") {
             closeDrawer()
             startActivity(Intent(this, WifiRulesActivity::class.java))
         }
-        addDrawerItem(dMenu, "🌐", "Kelola Subnet Private", "Daftar CIDR split tunnel") {
+        addModernDrawerItem(dMenu, R.drawable.ic_hub, Color.parseColor("#0EA5E9"), "Kelola Subnet Private", "Daftar CIDR split tunnel") {
             closeDrawer()
             startActivity(Intent(this, SubnetManagerActivity::class.java))
         }
-        addDrawerItem(dMenu, "📹", "Diagnostik & Tes CCTV", "Uji RTSP & throughput") {
+        addModernDrawerItem(dMenu, R.drawable.ic_cctv, Color.parseColor("#10B981"), "Diagnostik & Tes CCTV", "Uji RTSP & throughput") {
             closeDrawer()
             startActivity(Intent(this, CctvTesterActivity::class.java))
         }
-        addDrawerItem(dMenu, "🛡️", "Server & Akun", "Status server & token") {
+        addModernDrawerItem(dMenu, R.drawable.ic_account, Color.parseColor("#38BDF8"), "Server & Akun", "Status server & token") {
             closeDrawer()
             startActivity(Intent(this, AccountActivity::class.java))
         }
@@ -658,12 +694,33 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    private fun addDrawerItem(parent: LinearLayout, icon: String, title: String, sub: String, onClick: () -> Unit) {
+    // Creates a Soft-Tinted Rounded Badge container wrapping a Vector Icon
+    private fun createSoftTintedBadge(iconResId: Int, tintColor: Int, sizeDp: Int = 36, cornerDp: Int = 10): FrameLayout {
+        val frame = FrameLayout(this).apply {
+            val d = dp(sizeDp)
+            layoutParams = FrameLayout.LayoutParams(d, d)
+            // Soft-tinted semi-transparent background (alpha 15%) + delicate stroke (alpha 35%)
+            val bgAlpha = Color.argb(38, Color.red(tintColor), Color.green(tintColor), Color.blue(tintColor))
+            val strokeAlpha = Color.argb(85, Color.red(tintColor), Color.green(tintColor), Color.blue(tintColor))
+            background = roundedRect(bgAlpha, dp(cornerDp), strokeAlpha)
+        }
+        val iv = ImageView(this).apply {
+            setImageResource(iconResId)
+            setColorFilter(tintColor)
+            val p = dp(sizeDp / 4)
+            setPadding(p, p, p, p)
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        }
+        frame.addView(iv)
+        return frame
+    }
+
+    private fun addModernDrawerItem(parent: LinearLayout, iconRes: Int, iconTint: Int, title: String, sub: String, onClick: () -> Unit) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(12), dp(14), dp(12))
-            background = roundedRect(Color.parseColor("#111A2E"), dp(10), Color.TRANSPARENT)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = roundedRect(Color.parseColor("#111A2E"), dp(12), Color.TRANSPARENT)
             val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(8)
             }
@@ -673,16 +730,14 @@ class MainActivity : Activity() {
             setOnClickListener { onClick() }
         }
 
-        val ic = TextView(this).apply {
-            text = icon
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-            setPadding(0, 0, dp(12), 0)
-        }
-        row.addView(ic)
+        val badge = createSoftTintedBadge(iconRes, iconTint, sizeDp = 34, cornerDp = 10)
+        row.addView(badge)
 
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(12)
+            }
         }
         val tTv = TextView(this).apply {
             text = title
@@ -709,25 +764,45 @@ class MainActivity : Activity() {
         parent.addView(row)
     }
 
-    private fun createBentoCard(header: String, defVal: String, defSub: String): Triple<LinearLayout, TextView, TextView> {
+    private fun createModernBentoCard(
+        header: String,
+        iconRes: Int,
+        iconTint: Int,
+        defVal: String,
+        defSub: String
+    ): BentoCardResult {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(12))
-            background = roundedRect(Color.parseColor("#111827"), dp(14), Color.parseColor("#1F2937"))
+            background = roundedRect(Color.parseColor("#111827"), dp(16), Color.parseColor("#1F2937"))
         }
+
+        val topRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val badge = createSoftTintedBadge(iconRes, iconTint, sizeDp = 28, cornerDp = 8)
+        topRow.addView(badge)
+
         val hTv = TextView(this).apply {
             text = header
             setTextColor(Color.parseColor("#64748B"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.08f
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(8)
+            }
         }
+        topRow.addView(hTv)
+        card.addView(topRow)
+
         val vTv = TextView(this).apply {
             text = defVal
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(4), 0, 0)
+            setPadding(0, dp(8), 0, 0)
         }
         val sTv = TextView(this).apply {
             text = defSub
@@ -736,45 +811,57 @@ class MainActivity : Activity() {
             typeface = Typeface.MONOSPACE
             setPadding(0, dp(2), 0, 0)
         }
-        card.addView(hTv)
         card.addView(vTv)
         card.addView(sTv)
-        return Triple(card, vTv, sTv)
+        return BentoCardResult(card, vTv, sTv, badge)
     }
 
-    private fun createBentoCardWithDot(header: String, defVal: String, defSub: String): Triple<LinearLayout, TextView, View> {
+    private fun createModernBentoCardWithDot(
+        header: String,
+        iconRes: Int,
+        iconTint: Int,
+        defVal: String,
+        defSub: String
+    ): BentoCardDotResult {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(12), dp(14), dp(12))
-            background = roundedRect(Color.parseColor("#111827"), dp(14), Color.parseColor("#1F2937"))
+            background = roundedRect(Color.parseColor("#111827"), dp(16), Color.parseColor("#1F2937"))
         }
+
         val topRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
+        val badge = createSoftTintedBadge(iconRes, iconTint, sizeDp = 28, cornerDp = 8)
+        topRow.addView(badge)
+
         val hTv = TextView(this).apply {
             text = header
             setTextColor(Color.parseColor("#64748B"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.08f
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(8)
+            }
         }
+        topRow.addView(hTv)
+
         val dot = View(this).apply {
             val d = dp(8)
             layoutParams = LinearLayout.LayoutParams(d, d)
             background = roundedRect(Color.parseColor("#64748B"), dp(4), Color.TRANSPARENT)
         }
-        topRow.addView(hTv)
         topRow.addView(dot)
         card.addView(topRow)
 
         val vTv = TextView(this).apply {
             text = defVal
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(0, dp(4), 0, 0)
+            setPadding(0, dp(8), 0, 0)
         }
         val sTv = TextView(this).apply {
             text = defSub
@@ -785,8 +872,11 @@ class MainActivity : Activity() {
         }
         card.addView(vTv)
         card.addView(sTv)
-        return Triple(card, vTv, dot)
+        return BentoCardDotResult(card, vTv, dot, badge)
     }
+
+    private data class BentoCardResult(val first: LinearLayout, val second: TextView, val third: TextView, val fourth: FrameLayout)
+    private data class BentoCardDotResult(val first: LinearLayout, val second: TextView, val third: View, val fourth: FrameLayout)
 
     private fun setRoutingMode(mode: String, restartIfConnected: Boolean) {
         if (routingMode == mode) return
@@ -821,10 +911,10 @@ class MainActivity : Activity() {
     private fun styleTransportButton(btn: Button, active: Boolean) {
         if (active) {
             btn.setTextColor(Color.WHITE)
-            btn.background = roundedRect(Color.parseColor("#0284C7"), dp(6), Color.parseColor("#38BDF8"))
+            btn.background = roundedRect(Color.parseColor("#0284C7"), dp(8), Color.parseColor("#38BDF8"))
         } else {
             btn.setTextColor(Color.parseColor("#94A3B8"))
-            btn.background = roundedRect(Color.parseColor("#111827"), dp(6), Color.TRANSPARENT)
+            btn.background = roundedRect(Color.parseColor("#111827"), dp(8), Color.TRANSPARENT)
         }
     }
 
@@ -902,15 +992,15 @@ class MainActivity : Activity() {
 
         // 1. Top Segmented Mode Buttons
         if (isSecure) {
-            btnModeSecure.setTextColor(Color.WHITE)
-            btnModeSecure.background = roundedRect(Color.parseColor("#10B981"), dp(10), Color.parseColor("#34D399"))
-            btnModeSplit.setTextColor(Color.parseColor("#94A3B8"))
-            btnModeSplit.background = roundedRect(Color.parseColor("#111827"), dp(10), Color.TRANSPARENT)
+            cardModeSecure.background = roundedRect(Color.parseColor("#062B28"), dp(12), Color.parseColor("#10B981"))
+            tvModeSecureTitle.setTextColor(Color.WHITE)
+            cardModeSplit.background = roundedRect(Color.TRANSPARENT, dp(12), Color.TRANSPARENT)
+            tvModeSplitTitle.setTextColor(Color.parseColor("#94A3B8"))
         } else {
-            btnModeSplit.setTextColor(Color.WHITE)
-            btnModeSplit.background = roundedRect(Color.parseColor("#0284C7"), dp(10), Color.parseColor("#38BDF8"))
-            btnModeSecure.setTextColor(Color.parseColor("#94A3B8"))
-            btnModeSecure.background = roundedRect(Color.parseColor("#111827"), dp(10), Color.TRANSPARENT)
+            cardModeSplit.background = roundedRect(Color.parseColor("#0C2038"), dp(12), Color.parseColor("#0284C7"))
+            tvModeSplitTitle.setTextColor(Color.WHITE)
+            cardModeSecure.background = roundedRect(Color.TRANSPARENT, dp(12), Color.TRANSPARENT)
+            tvModeSecureTitle.setTextColor(Color.parseColor("#94A3B8"))
         }
 
         // 2. Central Hero Power Button
@@ -918,8 +1008,8 @@ class MainActivity : Activity() {
             // Emerald Connected Glow
             heroPowerRing.background = roundedRect(Color.parseColor("#062B28"), dp(72), Color.parseColor("#10B981"))
             heroPowerCircle.background = roundedRect(Color.parseColor("#10B981"), dp(56), Color.parseColor("#34D399"))
-            heroPowerIcon.text = "✓"
-            heroPowerIcon.setTextColor(Color.WHITE)
+            heroPowerIcon.setImageResource(R.drawable.ic_shield_check)
+            heroPowerIcon.setColorFilter(Color.WHITE)
 
             heroStatusTitle.text = if (isSecure) "SECURE TUNNEL AKTIF" else "SPLIT TUNNEL AKTIF"
             heroStatusTitle.setTextColor(Color.parseColor("#10B981"))
@@ -943,6 +1033,7 @@ class MainActivity : Activity() {
                 else -> "⚡ WireGuard"
             }
             tvBentoProtocolSub.text = if (activeTrans == "quic") "UDP 51821" else if (activeTrans.contains("tcp")) "TLS Tunnel" else "UDP 51820"
+            ivBentoProtocol.setImageResource(if (activeTrans == "quic") R.drawable.ic_rocket_launch else if (activeTrans.contains("tcp")) R.drawable.ic_lock else R.drawable.ic_shield_check)
 
             tvBentoIpVal.text = assignedIp
             tvBentoIpSub.text = if (isSecure) "Full Tunnel 0.0.0.0/0" else getSelectedSubnetNamesSummary()
@@ -951,8 +1042,8 @@ class MainActivity : Activity() {
             // Amber Connecting State
             heroPowerRing.background = roundedRect(Color.parseColor("#1C1917"), dp(72), Color.parseColor("#F59E0B"))
             heroPowerCircle.background = roundedRect(Color.parseColor("#D97706"), dp(56), Color.parseColor("#FBBF24"))
-            heroPowerIcon.text = "⏳"
-            heroPowerIcon.setTextColor(Color.WHITE)
+            heroPowerIcon.setImageResource(R.drawable.ic_power)
+            heroPowerIcon.setColorFilter(Color.WHITE)
 
             heroStatusTitle.text = "MENGHUBUNGKAN..."
             heroStatusTitle.setTextColor(Color.parseColor("#F59E0B"))
@@ -975,8 +1066,8 @@ class MainActivity : Activity() {
             // Disconnected Idle State (Cyber Slate / Cyan Accent)
             heroPowerRing.background = roundedRect(Color.parseColor("#0C1527"), dp(72), Color.parseColor("#1E293B"))
             heroPowerCircle.background = roundedRect(Color.parseColor("#1E293B"), dp(56), Color.parseColor("#334155"))
-            heroPowerIcon.text = "⏻"
-            heroPowerIcon.setTextColor(Color.parseColor("#94A3B8"))
+            heroPowerIcon.setImageResource(R.drawable.ic_power)
+            heroPowerIcon.setColorFilter(Color.parseColor("#94A3B8"))
 
             heroStatusTitle.text = "DISCONNECTED"
             heroStatusTitle.setTextColor(Color.WHITE)
@@ -990,6 +1081,7 @@ class MainActivity : Activity() {
             tvBentoProtocolSub.text = "Standby"
             tvBentoIpVal.text = assignedIp
             tvBentoIpSub.text = if (isSecure) "Secure (Full)" else "Split (${namedSubnets.size} subnets)"
+            ivBentoProtocol.setImageResource(R.drawable.ic_shield_check)
         }
 
         // 3. Transport Buttons Styling
