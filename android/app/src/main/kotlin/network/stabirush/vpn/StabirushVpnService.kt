@@ -1079,26 +1079,26 @@ class StabirushVpnService : VpnService() {
     }
 
     private fun logD(msg: String) {
-        logD(msg)
+        android.util.Log.d("Stabirush", msg)
         AppLogger.d("VPN", msg)
     }
 
     private fun logI(msg: String) {
-        logI(msg)
+        android.util.Log.i("Stabirush", msg)
         AppLogger.i("VPN", msg)
     }
 
     private fun logW(msg: String) {
-        logW(msg)
+        android.util.Log.w("Stabirush", msg)
         AppLogger.w("VPN", msg)
     }
 
     private fun logE(msg: String, tr: Throwable? = null) {
         if (tr != null) {
-            logE(msg, tr)
+            android.util.Log.e("Stabirush", msg, tr)
             AppLogger.e("VPN", "$msg: ${tr.message}")
         } else {
-            logE(msg)
+            android.util.Log.e("Stabirush", msg)
             AppLogger.e("VPN", msg)
         }
     }
