@@ -174,7 +174,7 @@ func (m *Manager) Authenticate(username, password, deviceName string, defaultIP,
 	tokenStr := fmt.Sprintf("sbr_dev_%s", hex.EncodeToString(rawBytes))
 
 	assignedIP := defaultIP
-	if len(u.DeviceIPs) > 0 {
+	if assignedIP == "" && len(u.DeviceIPs) > 0 {
 		assignedIP = u.DeviceIPs[0]
 	}
 	if assignedIP == "" {

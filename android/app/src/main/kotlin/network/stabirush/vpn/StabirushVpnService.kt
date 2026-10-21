@@ -7,12 +7,15 @@ import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.system.Os
 import android.util.Log
 import com.wireguard.android.backend.GoBackend
 import org.json.JSONObject
+import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.BufferedReader
 import java.io.DataInputStream
@@ -104,7 +107,12 @@ class StabirushVpnService : VpnService() {
         activeSubnetNames = if (subnetNames.isBlank()) "Semua Subnet Private" else subnetNames.trim()
 
         createNotificationChannel()
-        startForeground(NOTIF_ID, buildNotification("Menghubungkan ke Stabirush (${routingMode.uppercase()})..."))
+        val initNotif = buildNotification("Menghubungkan ke Stabirush (${routingMode.uppercase()})...")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, initNotif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIF_ID, initNotif)
+        }
 
         tunnelThread = Thread({
             try {
@@ -185,6 +193,8 @@ class StabirushVpnService : VpnService() {
                         addSplitSubnetRoutes(builder, activeSubnetsCidr)
                         builder.addRoute("10.10.0.1", 32)
                         builder.addRoute("10.0.0.154", 32)
+                        builder.addRoute("1.1.1.1", 32)
+                        builder.addRoute("8.8.8.8", 32)
                         builder.addDnsServer("10.0.0.154")
                         builder.addDnsServer("1.1.1.1")
                     }
@@ -233,6 +243,8 @@ class StabirushVpnService : VpnService() {
                             addSplitSubnetRoutes(builder, activeSubnetsCidr)
                             builder.addRoute("10.10.0.1", 32)
                             builder.addRoute("10.0.0.154", 32)
+                            builder.addRoute("1.1.1.1", 32)
+                            builder.addRoute("8.8.8.8", 32)
                             builder.addDnsServer("10.0.0.154")
                             builder.addDnsServer("1.1.1.1")
                         }
@@ -329,6 +341,8 @@ class StabirushVpnService : VpnService() {
             addSplitSubnetRoutes(builder, activeSubnetsCidr)
             builder.addRoute("10.10.0.1", 32)
             builder.addRoute("10.0.0.154", 32)
+            builder.addRoute("1.1.1.1", 32)
+            builder.addRoute("8.8.8.8", 32)
             builder.addDnsServer("10.0.0.154")
             builder.addDnsServer("1.1.1.1")
         }
@@ -338,13 +352,19 @@ class StabirushVpnService : VpnService() {
             Log.e("Stabirush", "VpnService.Builder establish() failed (null)")
             return false
         }
+        vpnInterface = pfd
 
-        val tunFd = pfd.detachFd()
+        // Duplicate the TUN fd to avoid calling pfd.detachFd() which triggers Android 15/16 fdsan abort
+        val dupFd = Os.dup(pfd.fileDescriptor)
+        val fdField = java.io.FileDescriptor::class.java.getDeclaredField("descriptor")
+        fdField.isAccessible = true
+        val tunFd = fdField.getInt(dupFd)
+
         val handle = GoBackend.wgTurnOn("stabirush0", tunFd, uapiConfig)
         if (handle < 0) {
             Log.e("Stabirush", "GoBackend.wgTurnOn failed with error code: $handle")
             try {
-                ParcelFileDescriptor.adoptFd(tunFd).close()
+                Os.close(dupFd)
             } catch (ignored: Exception) {}
             return false
         }
@@ -502,7 +522,7 @@ class StabirushVpnService : VpnService() {
                 currentTunnelSocket = finalSock
 
                 val rawOut = BufferedOutputStream(finalSock.getOutputStream(), 65536)
-                val rawIn = finalSock.getInputStream()
+                val rawIn = BufferedInputStream(finalSock.getInputStream(), 65536)
 
                 val wsKey = "c3RhYmlydXNoMjAyNg=="
                 val req = "GET /api/android/tunnel?ip=" + URLEncoder.encode(cleanIp, "UTF-8") +
@@ -559,6 +579,7 @@ class StabirushVpnService : VpnService() {
                             }
                         }
                     } catch (e: Exception) {
+                        Log.e("Stabirush", "TCP Downlink loop terminated: ${e.message}")
                         sessionAlive.set(false)
                         try { sock?.close() } catch (ignored: Exception) {}
                     }
@@ -581,6 +602,7 @@ class StabirushVpnService : VpnService() {
                             txBytes.addAndGet(2)
                         }
                     } catch (e: Exception) {
+                        Log.e("Stabirush", "TCP Keepalive terminated: ${e.message}")
                         sessionAlive.set(false)
                         try { sock?.close() } catch (ignored: Exception) {}
                     }
@@ -608,11 +630,17 @@ class StabirushVpnService : VpnService() {
                             val dIp = "${tunReadBuf[16].toUByte()}.${tunReadBuf[17].toUByte()}.${tunReadBuf[18].toUByte()}.${tunReadBuf[19].toUByte()}"
                             Log.d("Stabirush", "UL #$tx: $sIp -> $dIp ($n bytes)")
                         }
-                        synchronized(writeLock) {
-                            rawOut.write((n ushr 8) and 0xFF)
-                            rawOut.write(n and 0xFF)
-                            rawOut.write(tunReadBuf, 0, n)
-                            rawOut.flush()
+                        try {
+                            synchronized(writeLock) {
+                                rawOut.write((n ushr 8) and 0xFF)
+                                rawOut.write(n and 0xFF)
+                                rawOut.write(tunReadBuf, 0, n)
+                                rawOut.flush()
+                            }
+                        } catch (e: Exception) {
+                            Log.e("Stabirush", "TCP Uplink write error: ${e.message}")
+                            sessionAlive.set(false)
+                            break
                         }
                     } else if (n == 0) {
                         Thread.sleep(10)
