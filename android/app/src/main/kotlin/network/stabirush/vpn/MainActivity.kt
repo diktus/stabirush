@@ -1049,6 +1049,11 @@ class MainActivity : Activity() {
                 val ed = prefs.edit()
                 ed.putLong("configVersion", ver)
 
+                val srvPubKey = root.optString("serverPublicKey", "")
+                if (srvPubKey.isNotEmpty()) {
+                    ed.putString("serverPublicKey", srvPubKey)
+                }
+
                 val nsArr = root.optJSONArray("namedSubnets")
                 if (nsArr != null && nsArr.length() > 0) {
                     ed.putString("namedSubnetsJson", nsArr.toString())

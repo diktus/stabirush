@@ -293,7 +293,8 @@ class StabirushVpnService : VpnService() {
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val effectivePrivKey = prefs.getString("clientPrivateKey", "") ?: ""
-        val effectiveServerPubKey = prefs.getString("serverPublicKey", "") ?: ""
+        val serverPubKey = prefs.getString("serverPublicKey", "") ?: ""
+        val effectiveServerPubKey = if (serverPubKey.isNotEmpty()) serverPubKey else "J6gLYFFjvZ8WKyvej80RRTET4ygNWkdmaJjOQSou8UM="
 
         val clientPrivHex = WireGuardHelper.base64ToHex(effectivePrivKey)
         val serverPubHex = WireGuardHelper.base64ToHex(effectiveServerPubKey)
@@ -405,8 +406,8 @@ class StabirushVpnService : VpnService() {
             }
         }
 
-        if (!verified) {
-            Log.w("Stabirush", "WireGuard GoBackend could not verify handshake or reachability (RX=0)!")
+        if (!verified && isAutoMode) {
+            Log.w("Stabirush", "WireGuard GoBackend could not verify handshake or reachability (RX=0) in auto mode!")
             if (currentWgHandle >= 0) {
                 val h = currentWgHandle
                 currentWgHandle = -1
@@ -460,9 +461,9 @@ class StabirushVpnService : VpnService() {
 
     private fun testWireGuardReachability(): Int {
         val targets = listOf(
-            Pair("10.10.0.1", 443),
-            Pair("10.0.0.154", 53),
-            Pair("10.10.0.1", 80)
+            Pair("10.0.0.154", 8090),
+            Pair("10.10.0.1", 51821),
+            Pair("10.0.0.154", 53)
         )
         for ((host, port) in targets) {
             val t0 = System.currentTimeMillis()
@@ -511,7 +512,6 @@ class StabirushVpnService : VpnService() {
                 val finalSock: Socket = if (isDomain) {
                     val sslFactory = javax.net.ssl.SSLSocketFactory.getDefault() as javax.net.ssl.SSLSocketFactory
                     val ssl = sslFactory.createSocket(baseSock, cleanHost, targetPort, true) as javax.net.ssl.SSLSocket
-                    protect(ssl)
                     ssl.startHandshake()
                     Log.d("Stabirush", "SSL handshake complete!")
                     ssl
@@ -539,7 +539,11 @@ class StabirushVpnService : VpnService() {
                 txPackets.incrementAndGet()
                 txBytes.addAndGet(reqBytes.size.toLong())
 
-                val respBytes = readHttpHeaders(rawIn)
+                val (respBytes, statusLine) = readHttpHeaders(rawIn)
+                Log.d("Stabirush", "TCP Handshake status: $statusLine")
+                if (!statusLine.contains("101") && !statusLine.contains("200")) {
+                    throw Exception("Handshake gagal: $statusLine")
+                }
                 lastPingMs = (System.currentTimeMillis() - tStart).toInt()
                 rxPackets.incrementAndGet()
                 rxBytes.addAndGet(respBytes.toLong())
@@ -679,13 +683,27 @@ class StabirushVpnService : VpnService() {
         }
     }
 
-    private fun readHttpHeaders(input: InputStream): Int {
+    private fun readHttpHeaders(input: InputStream): Pair<Int, String> {
         var state = 0
         var count = 0
+        val sb = StringBuilder()
+        var firstLine = ""
+        var inFirstLine = true
         while (state < 4) {
             val b = input.read()
             if (b == -1) throw Exception("EOF membaca handshake tunnel")
             count++
+            val c = b.toChar()
+            if (inFirstLine) {
+                if (c == '\r' || c == '\n') {
+                    if (sb.isNotEmpty()) {
+                        firstLine = sb.toString()
+                        inFirstLine = false
+                    }
+                } else {
+                    sb.append(c)
+                }
+            }
             if ((state == 0 || state == 2) && b == '\r'.code) {
                 state++
             } else if ((state == 1 || state == 3) && b == '\n'.code) {
@@ -694,7 +712,7 @@ class StabirushVpnService : VpnService() {
                 state = if (b == '\r'.code) 1 else 0
             }
         }
-        return count
+        return Pair(count, firstLine)
     }
 
     private fun addSplitSubnetRoutes(builder: Builder, subnetsCsv: String) {

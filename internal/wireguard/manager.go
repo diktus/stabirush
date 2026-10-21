@@ -1170,6 +1170,15 @@ func (m *Manager) GetSubnets() ([]SubnetRoute, error) {
 	return routes, nil
 }
 
+// GetServerPublicKey returns the active WireGuard server public key
+func (m *Manager) GetServerPublicKey() string {
+	st, err := m.GetServerStatus()
+	if err == nil && st != nil && st.PublicKey != "" {
+		return st.PublicKey
+	}
+	return "J6gLYFFjvZ8WKyvej80RRTET4ygNWkdmaJjOQSou8UM="
+}
+
 // GetServerStatus returns complete health and metrics including TCP bypass status and NamedSubnets
 func (m *Manager) GetServerStatus() (*ServerStatus, error) {
 	m.EnsureBypassServices()

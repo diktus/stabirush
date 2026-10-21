@@ -686,6 +686,7 @@ func (s *Server) handleAndroidSync(w http.ResponseWriter, r *http.Request) {
 		"configVersion":  s.mgr.GetConfigVersion(),
 		"serverHost":     serverHost,
 		"serverEndpoint": s.cfg.ServerEndpoint,
+		"serverPublicKey": s.mgr.GetServerPublicKey(),
 		"webPort":        s.cfg.WebPort,
 		"tailnetName":    s.cfg.TailnetName,
 		"defaultDns":     s.cfg.DefaultDNS,
