@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -33,13 +34,17 @@ type ifReq struct {
 }
 
 type tunClientSession struct {
-	ip       string
-	conn     net.Conn
-	udpConn  *net.UDPConn
-	udpAddr  *net.UDPAddr
-	isUDP    bool
-	lastSeen time.Time
-	writeMu  sync.Mutex
+	ip          string
+	remoteAddr  string
+	conn        net.Conn
+	udpConn     *net.UDPConn
+	udpAddr     *net.UDPAddr
+	isUDP       bool
+	connectedAt time.Time
+	lastSeen    time.Time
+	rxBytes     int64
+	txBytes     int64
+	writeMu     sync.Mutex
 }
 
 func (c *tunClientSession) sendFrame(payload []byte) error {
@@ -52,6 +57,9 @@ func (c *tunClientSession) sendFrame(payload []byte) error {
 			copy(pkt[0:4], []byte("SBRU"))
 			copy(pkt[4:], payload)
 			_, err := c.udpConn.WriteToUDP(pkt, c.udpAddr)
+			if err == nil {
+				atomic.AddInt64(&c.txBytes, int64(len(payload)))
+			}
 			return err
 		}
 		_, err := c.udpConn.WriteToUDP([]byte("SBRK"), c.udpAddr)
@@ -69,6 +77,7 @@ func (c *tunClientSession) sendFrame(payload []byte) error {
 			if _, err := c.conn.Write(payload); err != nil {
 				return err
 			}
+			atomic.AddInt64(&c.txBytes, int64(len(payload)))
 		}
 	}
 	return nil
@@ -78,6 +87,8 @@ type androidTunBridge struct {
 	tunFile *os.File
 	mu      sync.RWMutex
 	clients map[string]*tunClientSession
+	cumRx   map[string]int64
+	cumTx   map[string]int64
 }
 
 var (
@@ -130,6 +141,8 @@ func initAndroidTunBridge(mgr ...*auth.Manager) *androidTunBridge {
 		b := &androidTunBridge{
 			tunFile: f,
 			clients: make(map[string]*tunClientSession),
+			cumRx:   make(map[string]int64),
+			cumTx:   make(map[string]int64),
 		}
 		globalTunBridge = b
 		go b.readTunLoop()
@@ -180,11 +193,13 @@ func (b *androidTunBridge) startUDPListener() {
 				}
 			}
 			sess := &tunClientSession{
-				ip:       clientIP,
-				udpConn:  uconn,
-				udpAddr:  raddr,
-				isUDP:    true,
-				lastSeen: time.Now(),
+				ip:          clientIP,
+				remoteAddr:  raddr.String(),
+				udpConn:     uconn,
+				udpAddr:     raddr,
+				isUDP:       true,
+				connectedAt: time.Now(),
+				lastSeen:    time.Now(),
 			}
 			b.registerSession(clientIP, sess)
 
@@ -203,6 +218,14 @@ func (b *androidTunBridge) startUDPListener() {
 			log.Printf("[tun-bridge] UDP tunnel handshake verified for client %s from %v", clientIP, raddr)
 
 		case "SBRK": // Keepalive ping
+			b.mu.RLock()
+			for _, s := range b.clients {
+				if s.isUDP && s.udpAddr != nil && s.udpAddr.String() == raddr.String() {
+					s.lastSeen = time.Now()
+					break
+				}
+			}
+			b.mu.RUnlock()
 			_, _ = uconn.WriteToUDP([]byte("SBRK"), raddr)
 
 		case "SBRU": // Data packet
@@ -220,6 +243,7 @@ func (b *androidTunBridge) startUDPListener() {
 			if sess != nil && sess.isUDP {
 				sess.udpAddr = raddr
 				sess.lastSeen = time.Now()
+				atomic.AddInt64(&sess.rxBytes, int64(len(payload)))
 			}
 			_, _ = b.tunFile.Write(payload)
 		}
@@ -287,12 +311,62 @@ func (b *androidTunBridge) unregisterSession(ip string, sess *tunClientSession) 
 	b.mu.Lock()
 	cur, ok := b.clients[ip]
 	if ok && cur == sess {
+		if b.cumRx == nil {
+			b.cumRx = make(map[string]int64)
+		}
+		if b.cumTx == nil {
+			b.cumTx = make(map[string]int64)
+		}
+		b.cumRx[ip] += atomic.LoadInt64(&sess.rxBytes)
+		b.cumTx[ip] += atomic.LoadInt64(&sess.txBytes)
 		delete(b.clients, ip)
 		b.mu.Unlock()
 		_ = exec.Command("ip", "route", "del", ip+"/32", "dev", tunDeviceName).Run()
 		return
 	}
 	b.mu.Unlock()
+}
+
+// GetSessionStats returns live or accumulated bandwidth and status metrics for an IP
+func (b *androidTunBridge) GetSessionStats(ip string) (endpoint string, rx int64, tx int64, lastSeen time.Time, isConnected bool, protocol string) {
+	if b == nil {
+		return "", 0, 0, time.Time{}, false, ""
+	}
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	sess, ok := b.clients[ip]
+	var curRx, curTx int64
+	if ok && sess != nil {
+		lastSeen = sess.lastSeen
+		curRx = atomic.LoadInt64(&sess.rxBytes)
+		curTx = atomic.LoadInt64(&sess.txBytes)
+		endpoint = sess.remoteAddr
+		isConnected = time.Since(lastSeen) < 120*time.Second
+		protocol = "TCP (TLS)"
+		if sess.isUDP {
+			protocol = "UDP Tunnel"
+		}
+	}
+
+	rx = curRx
+	tx = curTx
+	if b.cumRx != nil {
+		rx += b.cumRx[ip]
+	}
+	if b.cumTx != nil {
+		tx += b.cumTx[ip]
+	}
+
+	return endpoint, rx, tx, lastSeen, isConnected, protocol
+}
+
+// GetAndroidTunnelStats returns active tunnel session metrics for an IP
+func GetAndroidTunnelStats(ip string) (endpoint string, rx int64, tx int64, lastSeen time.Time, isConnected bool, protocol string) {
+	if globalTunBridge == nil {
+		return "", 0, 0, time.Time{}, false, ""
+	}
+	return globalTunBridge.GetSessionStats(ip)
 }
 
 func (s *Server) handleAndroidTunnel(w http.ResponseWriter, r *http.Request) {
@@ -366,16 +440,34 @@ func (s *Server) handleAndroidTunnel(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[tun-bridge] Handshake write failed for %s: %v", r.RemoteAddr, err)
 		return
 	}
-	log.Printf("[tun-bridge] Tunnel established successfully for client %s (%s)", rawIP, r.RemoteAddr)
+	realClientIP := r.Header.Get("X-Forwarded-For")
+	if realClientIP != "" {
+		parts := strings.Split(realClientIP, ",")
+		realClientIP = strings.TrimSpace(parts[0])
+	} else if r.Header.Get("X-Real-IP") != "" {
+		realClientIP = strings.TrimSpace(r.Header.Get("X-Real-IP"))
+	} else {
+		h, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err == nil {
+			realClientIP = h
+		} else {
+			realClientIP = r.RemoteAddr
+		}
+	}
+
+	log.Printf("[tun-bridge] Tunnel established successfully for client %s (%s)", rawIP, realClientIP)
 
 	sess := &tunClientSession{
-		ip:   rawIP,
-		conn: conn,
+		ip:          rawIP,
+		remoteAddr:  realClientIP,
+		conn:        conn,
+		connectedAt: time.Now(),
+		lastSeen:    time.Now(),
 	}
 	bridge.registerSession(rawIP, sess)
 	var extraIPs []string
 	defer func() {
-		log.Printf("[tun-bridge] Tunnel session closed for client %s (%s)", rawIP, r.RemoteAddr)
+		log.Printf("[tun-bridge] Tunnel session closed for client %s (%s)", rawIP, realClientIP)
 		bridge.unregisterSession(rawIP, sess)
 		for _, eip := range extraIPs {
 			bridge.unregisterSession(eip, sess)
@@ -393,6 +485,7 @@ func (s *Server) handleAndroidTunnel(w http.ResponseWriter, r *http.Request) {
 		}
 		pktLen := int(binary.BigEndian.Uint16(lenBuf[:]))
 		if pktLen == 0 {
+			sess.lastSeen = time.Now()
 			log.Printf("[tun-bridge] Heartbeat keepalive ping received from %s", rawIP)
 			_ = sess.sendFrame(nil)
 			continue
@@ -403,6 +496,8 @@ func (s *Server) handleAndroidTunnel(w http.ResponseWriter, r *http.Request) {
 		if _, err := io.ReadFull(bufrw, pktBuf[:pktLen]); err != nil {
 			return
 		}
+		sess.lastSeen = time.Now()
+		atomic.AddInt64(&sess.rxBytes, int64(pktLen))
 		if pktLen < 20 || (pktBuf[0]>>4) != 4 {
 			continue
 		}

@@ -19,6 +19,9 @@ import (
 	"wireguard-ui/internal/config"
 )
 
+// TunnelStatsFunc defines callback for retrieving active TCP/UDP tunnel session statistics
+type TunnelStatsFunc func(ip string) (endpoint string, rx int64, tx int64, lastSeen time.Time, isConnected bool, protocol string)
+
 // Manager manages WireGuard state, persistence, and synchronization
 type Manager struct {
 	mu               sync.Mutex
@@ -29,6 +32,7 @@ type Manager struct {
 	namedSubnets     []NamedSubnet
 	configVersion    int64
 	startTime        time.Time
+	tunnelStatsFn    TunnelStatsFunc
 }
 
 // PeerMetadata stores supplementary data not part of native wg conf
@@ -94,6 +98,13 @@ func InitManager(cfg *config.AppConfig) (*Manager, error) {
 // GetManager returns the active manager
 func GetManager() *Manager {
 	return globalManager
+}
+
+// SetTunnelStatsFunc registers a callback to query active TCP/UDP tunnel session metrics
+func (m *Manager) SetTunnelStatsFunc(fn TunnelStatsFunc) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.tunnelStatsFn = fn
 }
 
 // GetConfigVersion returns the latest configuration revision timestamp
@@ -461,12 +472,44 @@ func (m *Manager) GetDevices() ([]*Device, error) {
 		// Merge runtime stats
 		if s, ok := stats[peer.PublicKey]; ok {
 			dev.PeerRuntimeStats = *s
+			if s.IsConnected {
+				dev.Protocol = "WireGuard"
+			}
 		} else {
 			dev.LatestHandshakeHuman = "never"
 			dev.TransferRxHuman = "0 B"
 			dev.TransferTxHuman = "0 B"
 			dev.TransferTotalHuman = "0 B"
 			dev.IsConnected = false
+		}
+
+		// Merge TCP/UDP bypass tunnel stats if active
+		if m.tunnelStatsFn != nil && dev.AllocatedIP != "" {
+			endpoint, rx, tx, lastSeen, isConn, proto := m.tunnelStatsFn(dev.AllocatedIP)
+			if isConn {
+				dev.IsConnected = true
+				dev.Protocol = proto
+				if endpoint != "" {
+					dev.Endpoint = endpoint
+				}
+				dev.TransferRx += rx
+				dev.TransferTx += tx
+				dev.TransferRxHuman = FormatBytes(dev.TransferRx)
+				dev.TransferTxHuman = FormatBytes(dev.TransferTx)
+				dev.TransferTotalHuman = FormatBytes(dev.TransferRx + dev.TransferTx)
+
+				epoch := lastSeen.Unix()
+				if epoch > dev.LatestHandshake {
+					dev.LatestHandshake = epoch
+					dev.LatestHandshakeHuman = formatHandshake(epoch, time.Now().Unix())
+				}
+			} else if rx > 0 || tx > 0 {
+				dev.TransferRx += rx
+				dev.TransferTx += tx
+				dev.TransferRxHuman = FormatBytes(dev.TransferRx)
+				dev.TransferTxHuman = FormatBytes(dev.TransferTx)
+				dev.TransferTotalHuman = FormatBytes(dev.TransferRx + dev.TransferTx)
+			}
 		}
 
 		devices = append(devices, dev)

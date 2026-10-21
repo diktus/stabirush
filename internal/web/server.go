@@ -39,6 +39,9 @@ type Server struct {
 // NewServer creates a new HTTP server
 func NewServer(cfg *config.AppConfig, mgr *wireguard.Manager, staticFS fs.FS) *Server {
 	authMgr, _ := auth.NewManager(cfg.DataDir, DefaultExtensionToken)
+	if mgr != nil {
+		mgr.SetTunnelStatsFunc(GetAndroidTunnelStats)
+	}
 	s := &Server{
 		cfg:            cfg,
 		mgr:            mgr,

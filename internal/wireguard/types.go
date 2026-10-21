@@ -62,6 +62,7 @@ type PeerRuntimeStats struct {
 	TransferTxHuman      string `json:"transferTxHuman"`
 	TransferTotalHuman   string `json:"transferTotalHuman"`
 	IsConnected          bool   `json:"isConnected"`
+	Protocol             string `json:"protocol,omitempty"`
 }
 
 // Device combines config and live runtime stats for the UI

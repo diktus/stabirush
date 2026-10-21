@@ -261,6 +261,9 @@ function renderMachinesTable() {
     if (!dev.enabled) {
       tagsHtml += `<span class="badge-tag badge-disabled">Disabled</span>`;
     }
+    if (isConn && dev.protocol && dev.protocol.includes('TCP')) {
+      tagsHtml += `<span class="badge-tag" style="background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);" title="Connected over TCP Tunnel">⚡ TCP Active</span>`;
+    }
     if (dev.routingMode === 'secure' || dev.routingMode === 'full') {
       tagsHtml += `<span class="badge-tag" style="background:var(--status-connected-bg);color:var(--status-connected);border:1px solid var(--status-connected-border);" title="Full Tunnel 0.0.0.0/0">🔒 Secure 0.0.0.0/0</span>`;
     } else {
@@ -319,7 +322,7 @@ function renderMachinesTable() {
             <span class="status-dot ${isConn ? 'connected' : 'offline'}"></span>
             <div class="status-info">
               <span class="status-title" style="color: ${isConn ? 'var(--status-connected)' : 'var(--text-muted)'};">
-                ${isConn ? 'Connected' : 'Offline'}
+                ${isConn ? (dev.protocol ? `Connected (${escapeHtml(dev.protocol)})` : 'Connected') : 'Offline'}
               </span>
               <span class="status-subtitle">
                 ${dev.latestHandshakeHuman ? dev.latestHandshakeHuman : 'never'}
@@ -339,6 +342,10 @@ function renderMachinesTable() {
               <span class="traffic-arrow-tx">↑</span>
               <span>${dev.transferTxHuman || '0 B'}</span>
             </div>
+            ${dev.transferTotalHuman && dev.transferTotalHuman !== '0 B' ? `
+            <div class="traffic-total" style="font-size:11px;color:var(--text-subtle);margin-top:2px;" title="Total Bandwidth (Rx + Tx)">
+              ∑ ${dev.transferTotalHuman}
+            </div>` : ''}
           </div>
         </td>
 
