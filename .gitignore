@@ -1,0 +1,24 @@
+# Compiled binaries
+wireguard-ui
+bin/udp2raw
+bin/wstunnel
+
+# Web build artifacts
+web/static/*.apk
+web/static/*.apk.idsig
+web/static/*.zip
+
+# Sensitive data and configuration
+data/
+*.log
+
+# Android build outputs & keystores
+android/build/
+android/.gradle/
+*.jks
+*.keystore
+
+# Temporary and scratch files
+scratch/
+.DS_Store
+*.swp

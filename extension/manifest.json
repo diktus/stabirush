@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Stabirush WireGuard VPN",
+  "version": "2.0.0",
+  "description": "Stabirush VPN Extension: Connect to WireGuard private IPs (10.10.0.x, 192.168.101.x) or activate Secure Full Tunnel (0.0.0.0/0).",
+  "permissions": [
+    "proxy",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "Stabirush WireGuard VPN",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

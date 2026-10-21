@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Machines · Stabirush WireGuard Management</title>
+  <link rel="stylesheet" href="/static/style.css?v=3">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230f172a'/><line x1='8' y1='16' x2='15' y2='16' stroke='%2338bdf8' stroke-width='2.5' stroke-linecap='round'/><line x1='15' y1='16' x2='23' y2='9' stroke='%2338bdf8' stroke-width='2.5' stroke-linecap='round'/><line x1='15' y1='16' x2='23' y2='23' stroke='%2338bdf8' stroke-width='2.5' stroke-linecap='round'/><line x1='23' y1='9' x2='23' y2='23' stroke='%2338bdf8' stroke-width='2' stroke-dasharray='2 2'/><circle cx='8' cy='16' r='3' fill='%23f8fafc'/><circle cx='15' cy='16' r='4' fill='%2310b981'/><circle cx='23' cy='9' r='3' fill='%2338bdf8'/><circle cx='23' cy='23' r='3' fill='%2338bdf8'/></svg>">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div style="display: flex; align-items: center; gap: 1.5rem;">
+        <a href="#" class="nav-brand" onclick="switchTab('machines')">
+          <svg class="brand-logo-svg" width="28" height="28" viewBox="0 0 32 32" fill="none" aria-label="Stabirush Connection Logo">
+            <rect width="32" height="32" rx="8" fill="#1e293b" stroke="rgba(56,189,248,0.35)" stroke-width="1"/>
+            <line x1="8" y1="16" x2="15" y2="16" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="15" y1="16" x2="23" y2="9" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="15" y1="16" x2="23" y2="23" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="23" y1="9" x2="23" y2="23" stroke="#38bdf8" stroke-width="1.8" stroke-dasharray="2 2"/>
+            <circle cx="8" cy="16" r="2.8" fill="#f8fafc"/>
+            <circle cx="15" cy="16" r="3.8" fill="#10b981"/>
+            <circle cx="23" cy="9" r="2.8" fill="#38bdf8"/>
+            <circle cx="23" cy="23" r="2.8" fill="#38bdf8"/>
+          </svg>
+          <span class="brand-text">Stabirush</span>
+          <span class="brand-tailnet" id="nav-tailnet-name">
+            <span style="color:#10b981;">●</span> beni.stabirush
+          </span>
+        </a>
+
+        <nav class="nav-tabs">
+          <button class="nav-tab active" data-tab="machines" onclick="switchTab('machines')">
+            Machines <span class="tab-badge" id="tab-badge-machines">0</span>
+          </button>
+          <button class="nav-tab" data-tab="bypass" onclick="switchTab('bypass')">
+            TCP Bypass &amp; Wi-Fi Client <span class="tab-badge" style="background:rgba(16,185,129,0.25);color:#34d399;" id="tab-badge-bypass">ON</span>
+          </button>
+          <button class="nav-tab" data-tab="subnets" onclick="switchTab('subnets')">
+            Subnets &amp; Routes <span class="tab-badge" id="tab-badge-subnets">0</span>
+          </button>
+          <button class="nav-tab" data-tab="dns" onclick="switchTab('dns')">
+            DNS &amp; Firewall
+          </button>
+          <button class="nav-tab" data-tab="config" onclick="switchTab('config')">
+            Raw Config
+          </button>
+          <button class="nav-tab" data-tab="users" onclick="switchTab('users')">
+            Users &amp; Access <span class="tab-badge" id="tab-badge-users">0</span>
+          </button>
+          <button class="nav-tab" data-tab="settings" onclick="switchTab('settings')">
+            Settings
+          </button>
+        </nav>
+      </div>
+
+      <div class="nav-controls">
+        <div class="live-indicator">
+          <span class="pulse-dot"></span>
+          <span>Live updates</span>
+        </div>
+        <button class="btn-icon" id="theme-toggle" title="Toggle Dark/Light Mode" onclick="toggleTheme()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+
+    <!-- TAB: MACHINES -->
+    <section id="pane-machines" class="tab-pane active">
+      <!-- Stats summary cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Total Machines</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          </div>
+          <div class="stat-value" id="stat-total-devices">0</div>
+          <div class="stat-subtext" id="stat-devices-sub">All registered Stabirush peers</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Connected Now</span>
+            <span class="pulse-dot"></span>
+          </div>
+          <div class="stat-value" style="color:#10b981;" id="stat-connected-devices">0</div>
+          <div class="stat-subtext">Active handshake &lt; 3 mins</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Total Transferred</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+          </div>
+          <div class="stat-value" id="stat-total-transfer">0 B</div>
+          <div class="stat-subtext" id="stat-transfer-sub">↓ 0 B received · ↑ 0 B sent</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">
+            <span>Stabirush Endpoint &amp; TCP Bypass</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          </div>
+          <div class="stat-value" style="font-size:1.05rem; font-family:var(--font-mono);" id="stat-server-endpoint">...</div>
+          <div class="stat-subtext" id="stat-server-iface">UDP 51820 · wstunnel TCP 8443 · udp2raw TCP 4096</div>
+        </div>
+      </div>
+
+      <!-- Action & Filter Bar -->
+      <div class="action-bar">
+        <div style="display:flex; align-items:center; gap:0.75rem; flex:1; flex-wrap:wrap;">
+          <div class="search-box">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="machine-search" class="search-input" placeholder="Search machines by name, IP, or key..." oninput="filterMachines()">
+            <span class="search-kbd">/</span>
+          </div>
+
+          <div class="filter-pills">
+            <button class="filter-pill active" data-filter="all" onclick="setFilter('all')">All (<span id="count-all">0</span>)</button>
+            <button class="filter-pill" data-filter="connected" onclick="setFilter('connected')">Connected (<span id="count-connected">0</span>)</button>
+            <button class="filter-pill" data-filter="offline" onclick="setFilter('offline')">Offline (<span id="count-offline">0</span>)</button>
+            <button class="filter-pill" data-filter="subnets" onclick="setFilter('subnets')">Subnet Routers (<span id="count-subnets">0</span>)</button>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <a href="/static/stabirush-android.apk" download="stabirush-android.apk" class="btn-secondary" style="text-decoration:none; border-color:var(--status-connected-border);" title="Download Native Stabirush Android VPN App (.apk)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="color:#10b981;"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9993.4482.9993.9993.0001.5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.1 12 8.1s-3.5902.3116-5.1368.8497L4.8409 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
+            Android App (.apk)
+          </a>
+          <a href="/static/stabirush-vpn-extension.zip" download="stabirush-vpn-extension.zip" class="btn-secondary" style="text-decoration:none;" title="Download Stabirush Chrome / Edge VPN Extension (Split Tunnel & Secure 0.0.0.0/0)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            Stabirush Extension (.zip)
+          </a>
+          <button class="btn-primary" onclick="openAddDeviceModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add device...
+          </button>
+        </div>
+      </div>
+
+      <!-- Machines Table Card -->
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 32%;">Machine</th>
+              <th style="width: 23%;">Addresses</th>
+              <th style="width: 16%;">Status</th>
+              <th style="width: 14%;">Traffic</th>
+              <th style="width: 15%; text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="machines-table-body">
+            <!-- Dynamically populated rows -->
+          </tbody>
+        </table>
+        <div id="machines-empty-state" class="empty-state" style="display: none;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          <div style="font-weight:600; font-size:1rem; margin-bottom:0.25rem;">No machines found</div>
+          <div style="font-size:0.85rem;">Try adjusting your search or add a new machine to your Stabirush network.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: TCP BYPASS (WSTUNNEL / UDP2RAW) & CUSTOM WI-FI CLIENT -->
+    <section id="pane-bypass" class="tab-pane">
+      <div class="card-panel">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
+          <div>
+            <h2 class="card-title">⚡ TCP Bypass Bridge (`wstunnel` &amp; `udp2raw`) &rarr; WireGuard `wg0`</h2>
+            <p class="card-desc" style="margin-bottom:0;">
+              Saat jaringan Wi-Fi publik, kampus, hotel, atau ISP memblokir port UDP WireGuard (<code>51820</code>), Stabirush membungkus paket WireGuard ke dalam <strong>TCP / WebSocket TLS (<code>wstunnel</code>)</strong> atau <strong>FakeTCP (<code>udp2raw</code>)</strong> dan meneruskannya ke <code>127.0.0.1:51820 (wg0)</code> sehingga client tetap terhubung ke jaringan WireGuard yang sama!
+            </p>
+          </div>
+          <button class="btn-secondary" onclick="loadBypassStatus()">↻ Refresh Status</button>
+        </div>
+
+        <div class="info-grid" style="margin-bottom:1.5rem;">
+          <div class="info-item">
+            <label>wstunnel Server (WebSocket over TLS/TCP)</label>
+            <div class="info-val">
+              <span id="bypass-ws-status">Checking...</span>
+              <span class="badge-tag badge-subnet" id="bypass-ws-pid">PID -</span>
+            </div>
+          </div>
+          <div class="info-item">
+            <label>udp2raw Server (FakeTCP Raw Socket)</label>
+            <div class="info-val">
+              <span id="bypass-u2r-status">Checking...</span>
+              <span class="badge-tag badge-subnet" id="bypass-u2r-pid">PID -</span>
+            </div>
+          </div>
+          <div class="info-item">
+            <label>Target WireGuard Interface</label>
+            <div class="info-val">
+              <span>127.0.0.1:51820 (wg0 · 10.10.0.1/24)</span>
+              <span class="badge-tag" style="background:var(--status-connected-bg);color:var(--status-connected);"> bridged </span>
+            </div>
+          </div>
+        </div>
+
+        <form onsubmit="saveBypassSettings(event)" style="border-top:1px solid var(--border-color); padding-top:1.25rem;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:1.25rem;">
+            <div style="background:var(--bg-surface-secondary); padding:1rem; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                <strong style="font-size:0.9rem;">1. wstunnel (HTTPS / WebSocket TCP)</strong>
+                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; cursor:pointer;">
+                  <input type="checkbox" id="cfg-ws-enabled" checked> Aktif
+                </label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">TCP / TLS Listen Port</label>
+                <input type="number" id="cfg-ws-port" class="form-input" value="8443" required>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">HTTP Upgrade Secret Path Prefix</label>
+                <input type="text" id="cfg-ws-prefix" class="form-input" value="stabirush" required>
+              </div>
+            </div>
+
+            <div style="background:var(--bg-surface-secondary); padding:1rem; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+                <strong style="font-size:0.9rem;">2. udp2raw (FakeTCP Encapsulation)</strong>
+                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; cursor:pointer;">
+                  <input type="checkbox" id="cfg-u2r-enabled" checked> Aktif
+                </label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">FakeTCP Listen Port</label>
+                <input type="number" id="cfg-u2r-port" class="form-input" value="4096" required>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label">Cipher Password (`-k`)</label>
+                <input type="text" id="cfg-u2r-pass" class="form-input" placeholder="stabirush-raw-secret" required>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:1rem; display:flex; justify-content:flex-end;">
+            <button type="submit" class="btn-primary">Save &amp; Restart TCP Bypass Daemons</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Named Subnets Management & Custom WireGuard Wi-Fi SSID Profile Switcher Builder -->
+      <div class="card-panel">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:0.5rem;">
+          <h2 class="card-title" style="margin-bottom:0;">🏷️ Daftar Nama Subnet (Named Subnets untuk Split Tunnel)</h2>
+          <span class="badge-tag" style="background:var(--status-connected-bg);color:var(--status-connected);border:1px solid var(--status-connected-border);padding:0.25rem 0.65rem;">
+            ☁️ Live Sync dengan Android App (.apk)
+          </span>
+        </div>
+        <p class="card-desc">
+          Beri nama pada setiap subnet jaringan Anda (misal <strong>Subnet A - LAN Kantor</strong> <code>192.168.101.0/24</code>, <strong>Subnet B - Core Server</strong> <code>10.0.0.0/24</code>).
+          Anda kemudian dapat memilih <strong>subnet mana saja yang ditunnel saat terhubung ke Wi-Fi SSID tertentu</strong>. Semua perubahan di halaman ini otomatis tersinkronisasi ke aplikasi Android tanpa perlu install ulang APK!
+        </p>
+
+        <form onsubmit="addOrUpdateNamedSubnet(event)" style="display:grid; grid-template-columns: 1.4fr 1.1fr 1.5fr auto; gap:0.75rem; align-items:end; margin-bottom:1rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Nama Subnet</label>
+            <input type="text" id="named-sub-name" class="form-input" placeholder="e.g. Subnet A - LAN Kantor" required>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Subnet CIDR</label>
+            <input type="text" id="named-sub-cidr" class="form-input" placeholder="e.g. 192.168.101.0/24" required>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Deskripsi / Keterangan</label>
+            <input type="text" id="named-sub-desc" class="form-input" placeholder="e.g. Server internal kantor cabang A">
+          </div>
+          <button type="submit" class="btn-primary" style="height:38px;">+ Simpan Nama Subnet</button>
+        </form>
+
+        <div id="named-subnets-pills" style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <div class="card-panel">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:0.5rem;">
+          <h2 class="card-title" style="margin-bottom:0;">📶 Custom Stabirush Client: Auto-Switch Profile &amp; Per-SSID Subnet Split Tunnel</h2>
+          <span class="badge-tag badge-subnet" id="sync-version-badge">Sync Ready</span>
+        </div>
+        <p class="card-desc">
+          Konfigurasikan aturan perpindahan profil otomatis berdasarkan nama Wi-Fi (<strong>SSID</strong>) beserta <strong>pilihan Subnet yang ditunnel per SSID</strong> (misal saat di <em>Wi-Fi SSID A</em> hanya men-tunnel <em>Subnet A</em>).
+          Pengaturan ini <strong>otomatis sinkron (Cloud Sync) dengan aplikasi Android Stabirush</strong> setiap kali disimpan!
+        </p>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1rem; margin-bottom:1rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Pilih Machine / Peer</label>
+            <select id="custom-client-device" class="form-select" onchange="loadDeviceWifiRulesUI()"></select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Default Mode Saat Roaming / Seluler</label>
+            <select id="custom-client-default-mode" class="form-select">
+              <option value="secure">🔒 Secure Mode (Full Tunnel 0.0.0.0/0)</option>
+              <option value="split">Split Tunnel (Private Subnets)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-card" style="margin-bottom:1rem;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:28%;">Wi-Fi SSID Pattern (mendukung `*`)</th>
+                <th style="width:27%;">Target Stabirush Profile</th>
+                <th style="width:33%;">Subnet yang Ditunnel (Split Rule per SSID)</th>
+                <th style="width:12%; text-align:right;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="wifi-rules-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="btn-secondary" onclick="addWifiRuleRow()">+ Tambah Aturan SSID &amp; Subnet</button>
+            <button type="button" class="btn-primary" onclick="saveDeviceWifiRules()">☁️ Simpan &amp; Sync ke Android / Peer</button>
+          </div>
+
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <a href="/static/stabirush-android.apk" download="stabirush-android.apk" class="btn-primary" style="text-decoration:none; background:#10b981; color:#ffffff;" title="Cukup install 1x! Semua perubahan aturan SSID & Subnet otomatis sync ke APK ini.">
+              📱 Native Android App (`.apk` · Cloud Sync)
+            </a>
+            <button type="button" class="btn-secondary" onclick="downloadCustomClient('linux')">
+              ⬇ Linux / macOS Auto-Client (`.sh`)
+            </button>
+            <button type="button" class="btn-secondary" onclick="downloadCustomClient('windows')">
+              ⬇ Windows Auto-Client (`.ps1`)
+            </button>
+            <button type="button" class="btn-secondary" onclick="downloadCustomClient('ios')">
+              ⬇ iOS / macOS On-Demand (`.mobileconfig`)
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: SUBNETS & ROUTES -->
+    <section id="pane-subnets" class="tab-pane">
+      <div class="card-panel">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1rem;">
+          <div>
+            <h2 class="card-title">Named Subnets &amp; Advertised Routes</h2>
+            <p class="card-desc" style="margin-bottom:0;">
+              Kelola daftar nama subnet jaringan (Named Subnets) untuk Split Tunneling per Wi-Fi SSID dan pantau rute subnet yang diiklankan oleh peer router.
+            </p>
+          </div>
+        </div>
+
+        <form onsubmit="addOrUpdateNamedSubnetFromTab(event)" style="display:grid; grid-template-columns: 1.4fr 1.1fr 1.5fr auto; gap:0.75rem; align-items:end; margin-bottom:1.25rem; background:var(--bg-surface-secondary); padding:1rem; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Nama Subnet</label>
+            <input type="text" id="tab-sub-name" class="form-input" placeholder="e.g. Subnet A - LAN Kantor" required>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Subnet CIDR</label>
+            <input type="text" id="tab-sub-cidr" class="form-input" placeholder="e.g. 192.168.101.0/24" required>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Deskripsi</label>
+            <input type="text" id="tab-sub-desc" class="form-input" placeholder="e.g. Jaringan lokal kantor A">
+          </div>
+          <button type="submit" class="btn-primary" style="height:38px;">+ Tambah / Update Nama Subnet</button>
+        </form>
+
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nama Subnet</th>
+                <th>Subnet CIDR</th>
+                <th>Gateway / Router Device</th>
+                <th>WireGuard IP</th>
+                <th>Status</th>
+                <th style="text-align:right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="subnets-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: DNS & FIREWALL -->
+    <section id="pane-dns" class="tab-pane">
+      <div class="card-panel">
+        <h2 class="card-title">Interface &amp; DNS Configuration</h2>
+        <p class="card-desc">
+          Server interface parameters and DNS resolver setup. DNS requests from Stabirush WireGuard peers (10.10.0.0/24) are redirected to AdGuard Home.
+        </p>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Interface Name</label>
+            <div class="info-val"><span>wg0</span></div>
+          </div>
+          <div class="info-item">
+            <label>Server WireGuard IP</label>
+            <div class="info-val" id="dns-server-ip"><span>10.10.0.1/24</span></div>
+          </div>
+          <div class="info-item">
+            <label>Listening UDP Port</label>
+            <div class="info-val" id="dns-server-port"><span>51820</span></div>
+          </div>
+          <div class="info-item">
+            <label>Interface MTU</label>
+            <div class="info-val"><span>1380</span></div>
+          </div>
+          <div class="info-item">
+            <label>DNS Resolver</label>
+            <div class="info-val"><span>10.0.0.154:53 (AdGuard Home DNAT)</span></div>
+          </div>
+          <div class="info-item">
+            <label>IP Forwarding</label>
+            <div class="info-val" id="dns-ip-forward"><span>net.ipv4.ip_forward = 1 (Enabled)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-panel">
+        <h2 class="card-title">IPTables PostUp / PostDown Rules</h2>
+        <p class="card-desc">
+          Automated firewall and NAT masquerade rules executed when the `wg0` interface starts or stops.
+        </p>
+        <div class="form-group">
+          <label class="form-label">PostUp Rule</label>
+          <div class="config-preview-box" id="rules-post-up">...</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">PostDown Rule</label>
+          <div class="config-preview-box" id="rules-post-down">...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: RAW CONFIG -->
+    <section id="pane-config" class="tab-pane">
+      <div class="card-panel">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+          <div>
+            <h2 class="card-title">WireGuard Server Configuration File</h2>
+            <p class="card-desc" style="margin-bottom:0;">Editing `/etc/wireguard/wg0.conf` directly. A backup is automatically saved before writing.</p>
+          </div>
+          <div style="display:flex; gap:0.5rem;">
+            <button class="btn-secondary" onclick="loadRawConfig()">Reload</button>
+            <button class="btn-primary" onclick="saveRawConfig()">Save &amp; Apply</button>
+          </div>
+        </div>
+        <textarea id="raw-config-editor" class="code-editor-area" spellcheck="false"></textarea>
+      </div>
+    </section>
+
+    <!-- TAB: SETTINGS -->
+    <section id="pane-settings" class="tab-pane">
+      <div class="card-panel">
+        <h2 class="card-title">Stabirush Network &amp; Server Settings</h2>
+        <p class="card-desc">Configure default client parameters, network domain names, and administrative authentication.</p>
+
+        <form id="settings-form" onsubmit="saveSettings(event)" style="max-width: 600px;">
+          <div class="form-group">
+            <label class="form-label">Server Public Endpoint (Host / IP : Port)</label>
+            <input type="text" id="setting-endpoint" class="form-input" placeholder="168.110.193.226:51820" required>
+            <div class="form-hint">Used by clients to reach this Stabirush server. Can be an IP address or a DDNS/domain.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Stabirush Network Name</label>
+            <input type="text" id="setting-tailnet" class="form-input" placeholder="beni.stabirush" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Default Client DNS</label>
+              <input type="text" id="setting-dns" class="form-input" placeholder="10.10.0.1" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Default Client MTU</label>
+              <input type="text" id="setting-mtu" class="form-input" placeholder="1380" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Keepalive (sec)</label>
+              <input type="number" id="setting-keepalive" class="form-input" placeholder="25" min="0" max="120" required>
+            </div>
+          </div>
+
+          <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+            <h3 style="font-size:0.95rem; font-weight:600; margin-bottom:0.35rem;">Web UI HTTP Basic Auth (Optional)</h3>
+            <p class="card-desc">Leave blank to allow unrestricted local network access to this UI.</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Admin Username</label>
+                <input type="text" id="setting-auth-user" class="form-input" placeholder="admin">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Admin Password</label>
+                <input type="password" id="setting-auth-pass" class="form-input" placeholder="••••••••">
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary" style="margin-top: 1rem;">Save Settings</button>
+        </form>
+      </div>
+
+      <div class="card-panel">
+        <h2 class="card-title">System &amp; Lightweight Runtime Stats</h2>
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Stabirush UI Memory Footprint</label>
+            <div class="info-val" id="runtime-memory"><span>~1.5 MB RAM</span></div>
+          </div>
+          <div class="info-item">
+            <label>Language &amp; Runtime</label>
+            <div class="info-val"><span>Go Static Binary + wstunnel + udp2raw</span></div>
+          </div>
+          <div class="info-item">
+            <label>Service Uptime</label>
+            <div class="info-val" id="runtime-uptime"><span>0m</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: USERS & ACCESS -->
+    <section id="pane-users" class="tab-pane">
+      <div class="card-panel">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+          <div>
+            <h2 class="card-title" style="margin-bottom:0.25rem;">User Management &amp; Zero Trust Device Mapping</h2>
+            <p class="card-desc" style="margin-bottom:0;">Kelola akun pengguna, ganti kata sandi, dan petakan perangkat WireGuard (IP Mesh) yang diizinkan untuk setiap user.</p>
+          </div>
+          <button class="btn-primary" onclick="openAddUserModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Tambah Pengguna Baru
+          </button>
+        </div>
+
+        <!-- Users Table -->
+        <div class="table-container" style="margin-bottom:2rem;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Perangkat WireGuard Terpetakan (Allowed IPs)</th>
+                <th>Dibuat Pada</th>
+                <th style="text-align:right;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <tr>
+                <td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Memuat daftar pengguna...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Active Device Sessions / Tokens -->
+        <div style="border-top:1px solid var(--border-color); padding-top:1.5rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
+            <div>
+              <h3 style="font-weight:700; font-size:1.05rem; color:var(--text-primary); margin-bottom:0.2rem;">Sesi Perangkat Aktif (Zero Trust Device Tokens)</h3>
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0;">Daftar token sesi perangkat yang sedang login dan terhubung ke API / Tunnel Stabirush.</p>
+            </div>
+            <button class="btn-secondary btn-sm" onclick="fetchUserTokens()">Segarkan Sesi ⟳</button>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Perangkat</th>
+                  <th>User</th>
+                  <th>Alokasi IP Mesh</th>
+                  <th>Token Sesi</th>
+                  <th>Terakhir Digunakan</th>
+                  <th style="text-align:right;">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tokens-table-body">
+                <tr>
+                  <td colspan="6" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Memuat sesi aktif...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =========================================================
+       MODALS
+       ========================================================= -->
+
+  <!-- Modal: Add Device -->
+  <div id="modal-add-device" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">Add a machine to Stabirush</div>
+        <button class="modal-close" onclick="closeModal('modal-add-device')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="modal-body" id="add-device-step1">
+        <label class="form-label">Select platform</label>
+        <div class="platform-selector">
+          <button type="button" class="platform-btn active" data-os="macos" onclick="selectPlatform('macos')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.63-.76 1.06-1.82.94-2.88-.91.04-2.02.61-2.67 1.37-.58.67-1.09 1.74-.95 2.78 1.02.08 2.06-.51 2.68-1.27z"/></svg>
+            <span>Apple</span>
+          </button>
+          <button type="button" class="platform-btn" data-os="windows" onclick="selectPlatform('windows')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-13.051-1.801"/></svg>
+            <span>Windows</span>
+          </button>
+          <button type="button" class="platform-btn" data-os="linux" onclick="selectPlatform('linux')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12.001 2c-3.1 0-5.617 2.516-5.617 5.617 0 .895.21 1.742.586 2.492C5.748 10.92 5 12.188 5 13.61c0 2.22 1.428 4.116 3.447 4.793.18 1.996 1.848 3.597 3.554 3.597s3.374-1.601 3.554-3.597C17.572 17.726 19 15.83 19 13.61c0-1.422-.748-2.69-1.97-3.501.376-.75.586-1.597.586-2.492C17.616 4.516 15.1 2 12.001 2z"/></svg>
+            <span>Linux</span>
+          </button>
+          <button type="button" class="platform-btn" data-os="android" onclick="selectPlatform('android')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9993.4482.9993.9993.0001.5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8.1 12 8.1s-3.5902.3116-5.1368.8497L4.8409 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>
+            <span>Android</span>
+          </button>
+          <button type="button" class="platform-btn" data-os="router" onclick="selectPlatform('router')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 2v8h16V8H4zm3 2h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"/></svg>
+            <span>Router</span>
+          </button>
+        </div>
+
+        <form id="form-create-device" onsubmit="submitCreateDevice(event)">
+          <div class="form-group">
+            <label class="form-label">Machine name</label>
+            <input type="text" id="new-device-name" class="form-input" placeholder="e.g. MacBook Pro, Beni iPhone, Home Router" required>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Assigned WireGuard IP</label>
+              <input type="text" id="new-device-ip" class="form-input" placeholder="10.10.0.6" required>
+              <div class="form-hint">Auto-calculated next free IP</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">VPN Client Mode</label>
+              <select id="new-device-routing" class="form-select">
+                <option value="split" selected>Split Tunnel (Private Network Only)</option>
+                <option value="secure">🔒 Secure Mode (Full Tunnel 0.0.0.0/0)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Transport / UDP Bypass</label>
+              <select id="new-device-transport" class="form-select">
+                <option value="udp" selected>Standard UDP (Port 51820)</option>
+                <option value="wstunnel">⚡ TCP Bypass: wstunnel (Port 8443)</option>
+                <option value="udp2raw">⚡ TCP Bypass: udp2raw (Port 4096)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Advertised Subnets (Optional)</label>
+              <input type="text" id="new-device-subnets" class="form-input" placeholder="e.g. 192.168.100.0/24">
+            </div>
+          </div>
+
+          <div class="modal-footer" style="margin: 1.5rem -1.5rem -1.5rem -1.5rem;">
+            <button type="button" class="btn-secondary" onclick="closeModal('modal-add-device')">Cancel</button>
+            <button type="submit" class="btn-primary" id="btn-submit-create">Generate Machine</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Step 2: Generated QR & Config display -->
+      <div class="modal-body" id="add-device-step2" style="display: none;">
+        <div style="text-align: center; margin-bottom: 1.25rem;">
+          <h3 style="font-weight: 700; font-size: 1.1rem; color: #10b981;" id="success-device-title">Machine Added to Stabirush!</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Scan this QR code with the WireGuard app or download the configuration profile.</p>
+        </div>
+
+        <div class="qr-box-container">
+          <div id="qrcode-container"></div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem;">Scan using camera or WireGuard App</div>
+        </div>
+
+        <div class="form-group">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
+            <label class="form-label" style="margin-bottom:0;">Configuration Profile (.conf)</label>
+            <button class="btn-copy" onclick="copyCreatedConfig()" title="Copy to clipboard">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span style="font-size:0.75rem; margin-left:0.25rem;">Copy</span>
+            </button>
+          </div>
+          <div id="new-config-preview" class="config-preview-box"></div>
+        </div>
+
+        <div class="modal-footer" style="margin: 1.5rem -1.5rem -1.5rem -1.5rem; justify-content: space-between;">
+          <button type="button" class="btn-secondary" onclick="resetAddDeviceModal()">Add Another</button>
+          <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="btn-secondary" onclick="downloadQRImage('qrcode-container', state.createdDeviceName)">
+              Download QR (.png)
+            </button>
+            <button type="button" class="btn-primary" onclick="downloadCreatedConfig()">
+              Download .conf
+            </button>
+            <button type="button" class="btn-secondary" onclick="closeModal('modal-add-device')">Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: View Setup / QR Code for Existing Device -->
+  <div id="modal-view-setup" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 620px;">
+      <div class="modal-header">
+        <div class="modal-title" id="view-setup-title">Stabirush Machine Setup &amp; Profiles</div>
+        <button class="modal-close" onclick="closeModal('modal-view-setup')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div id="view-rekey-banner" style="display:none; background:var(--accent-blue-bg); border:1px solid var(--accent-blue-border); border-radius:var(--radius-md); padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.8rem; color:var(--text-main); align-items:center; justify-content:space-between; gap:0.75rem;">
+          <span>Peer ini dibuat sebelum Web UI ada (Private Key hanya ada di perangkat client). Ingin membuat kunci baru agar QR &amp; .conf siap pakai?</span>
+          <button type="button" class="btn-primary btn-sm" style="white-space:nowrap;" onclick="rekeyCurrentDevice()">Generate Kunci Baru</button>
+        </div>
+
+        <!-- Interactive Mode & Transport Switcher inside Setup Modal -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem; background:var(--bg-surface-secondary); padding:0.75rem; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+          <div>
+            <label class="form-label" style="font-size:0.72rem; margin-bottom:0.3rem;">1. Pilih Mode VPN Client</label>
+            <div class="filter-pills" style="width:100%; display:grid; grid-template-columns:1fr 1fr;">
+              <button type="button" class="filter-pill active" id="setup-mode-split" onclick="switchSetupProfile('split', null)">Split Tunnel</button>
+              <button type="button" class="filter-pill" id="setup-mode-secure" onclick="switchSetupProfile('secure', null)">🔒 Secure (0.0.0.0/0)</button>
+            </div>
+          </div>
+          <div>
+            <label class="form-label" style="font-size:0.72rem; margin-bottom:0.3rem;">2. Transport / Bypass Blokir UDP</label>
+            <div class="filter-pills" style="width:100%; display:grid; grid-template-columns:1fr 1fr 1fr;">
+              <button type="button" class="filter-pill active" id="setup-trans-udp" onclick="switchSetupProfile(null, 'udp')">UDP</button>
+              <button type="button" class="filter-pill" id="setup-trans-wstunnel" onclick="switchSetupProfile(null, 'wstunnel')">⚡ wstunnel</button>
+              <button type="button" class="filter-pill" id="setup-trans-udp2raw" onclick="switchSetupProfile(null, 'udp2raw')">⚡ udp2raw</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="qr-box-container">
+          <div id="view-qrcode-container"></div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem;" id="view-qr-hint">Scan with WireGuard app</div>
+        </div>
+
+        <div class="form-group">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.35rem;">
+            <label class="form-label" style="margin-bottom:0;">Stabirush WireGuard Configuration</label>
+            <button class="btn-copy" onclick="copyExistingConfig()" title="Copy to clipboard">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span style="font-size:0.75rem; margin-left:0.25rem;">Copy</span>
+            </button>
+          </div>
+          <div id="view-config-preview" class="config-preview-box"></div>
+        </div>
+
+        <!-- Custom Auto-SSID Client Download Box -->
+        <div style="background:var(--bg-surface-secondary); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:0.75rem; margin-top:0.75rem;">
+          <div style="font-size:0.78rem; font-weight:600; margin-bottom:0.4rem;">📶 Unduh Custom Client (Auto-Switch Wi-Fi SSID &amp; Auto TCP Failover):</div>
+          <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+            <a href="/static/stabirush-android.apk" download="stabirush-android.apk" class="btn-primary btn-sm" style="text-decoration:none; background:#10b981; color:#ffffff;">📱 Android App (`.apk`)</a>
+            <button type="button" class="btn-secondary btn-sm" onclick="downloadCustomClientForViewing('linux')">⬇ Linux/macOS (`.sh`)</button>
+            <button type="button" class="btn-secondary btn-sm" onclick="downloadCustomClientForViewing('windows')">⬇ Windows (`.ps1`)</button>
+            <button type="button" class="btn-secondary btn-sm" onclick="downloadCustomClientForViewing('ios')">⬇ iOS/macOS On-Demand (`.mobileconfig`)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button type="button" class="btn-secondary btn-sm" onclick="rekeyCurrentDevice()" title="Rotate / Generate New Keypair">
+          Regenerate Key
+        </button>
+        <div style="display:flex; gap:0.5rem;">
+          <button type="button" class="btn-secondary" onclick="downloadQRImage('view-qrcode-container', state.viewingDeviceName)">
+            Download QR (.png)
+          </button>
+          <button type="button" class="btn-primary" id="btn-view-download" onclick="downloadExistingConfig()">
+            Download .conf
+          </button>
+          <button type="button" class="btn-secondary" onclick="closeModal('modal-view-setup')">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Device -->
+  <div id="modal-edit-device" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">Edit Stabirush Machine Settings</div>
+        <button class="modal-close" onclick="closeModal('modal-edit-device')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <form id="form-edit-device" onsubmit="submitEditDevice(event)">
+          <input type="hidden" id="edit-device-pubkey">
+
+          <div class="form-group">
+            <label class="form-label">Machine Name</label>
+            <input type="text" id="edit-device-name" class="form-input" required>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+            <div class="form-group">
+              <label class="form-label">Platform / Icon</label>
+              <select id="edit-device-os" class="form-select">
+                <option value="macos">Apple (macOS / iOS)</option>
+                <option value="windows">Windows</option>
+                <option value="linux">Linux</option>
+                <option value="android">Android</option>
+                <option value="router">Router / Subnet Router</option>
+                <option value="browser">Browser Extension</option>
+                <option value="device">Generic Device</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Default VPN Client Mode</label>
+              <select id="edit-device-routing" class="form-select">
+                <option value="split">Split Tunnel (Private Network Only)</option>
+                <option value="secure">🔒 Secure Mode (Full Tunnel 0.0.0.0/0)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Default Transport / TCP Bypass</label>
+            <select id="edit-device-transport" class="form-select">
+              <option value="udp">Standard UDP (Port 51820)</option>
+              <option value="wstunnel">⚡ TCP Bypass: wstunnel (WebSocket TLS Port 8443)</option>
+              <option value="udp2raw">⚡ TCP Bypass: udp2raw (FakeTCP Port 4096)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Allowed IPs &amp; Subnets (Server Side)</label>
+            <input type="text" id="edit-device-allowedips" class="form-input" required>
+            <div class="form-hint">Example: `10.10.0.4/32, 192.168.101.0/24`</div>
+          </div>
+
+          <div class="form-group" style="display:flex; align-items:center; gap:0.5rem; margin-top:1rem;">
+            <input type="checkbox" id="edit-device-enabled" style="width:18px; height:18px; cursor:pointer;">
+            <label for="edit-device-enabled" style="font-size:0.875rem; font-weight:600; cursor:pointer;">Enable machine (traffic authorized)</label>
+          </div>
+
+          <div class="modal-footer" style="margin: 1.5rem -1.5rem -1.5rem -1.5rem; justify-content: space-between;">
+            <button type="button" class="btn-secondary" style="color:var(--danger); border-color:var(--danger-border);" onclick="confirmDeleteDevice()">Remove Machine...</button>
+            <div style="display:flex; gap:0.5rem;">
+              <button type="button" class="btn-secondary" onclick="closeModal('modal-edit-device')">Cancel</button>
+              <button type="submit" class="btn-primary">Save Changes</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add User -->
+  <div id="modal-add-user" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">Tambah Pengguna Baru</div>
+        <button class="modal-close" onclick="closeModal('modal-add-user')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="form-add-user" onsubmit="submitAddUser(event)">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" id="add-user-username" class="form-input" required placeholder="misal: bobi / rudi">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" id="add-user-password" class="form-input" required placeholder="Minimal 4 karakter">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <select id="add-user-role" class="form-select">
+              <option value="user">User (Mobile &amp; Mesh Client)</option>
+              <option value="admin">Administrator (Akses Penuh)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mapping Perangkat / IP WireGuard yang Diizinkan</label>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">Centang perangkat WireGuard yang boleh dipakai oleh user ini:</div>
+            <div id="add-user-devices-checkboxes" style="background:var(--bg-surface-secondary); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.75rem; max-height:160px; overflow-y:auto;">
+              <!-- Filled dynamically -->
+            </div>
+          </div>
+          <div class="modal-footer" style="margin:1.5rem -1.5rem -1.5rem -1.5rem; justify-content:flex-end; gap:0.5rem;">
+            <button type="button" class="btn-secondary" onclick="closeModal('modal-add-user')">Batal</button>
+            <button type="submit" class="btn-primary">Simpan Pengguna</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit User -->
+  <div id="modal-edit-user" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">Edit Pengguna &amp; Ganti Password</div>
+        <button class="modal-close" onclick="closeModal('modal-edit-user')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="form-edit-user" onsubmit="submitEditUser(event)">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" id="edit-user-username" class="form-input" readonly style="opacity:0.75; cursor:not-allowed;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password Baru (Opsional)</label>
+            <input type="password" id="edit-user-password" class="form-input" placeholder="Biarkan kosong jika tidak ingin mengganti password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Role</label>
+            <select id="edit-user-role" class="form-select">
+              <option value="user">User (Mobile &amp; Mesh Client)</option>
+              <option value="admin">Administrator (Akses Penuh)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mapping Perangkat / IP WireGuard yang Diizinkan</label>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">Centang perangkat WireGuard yang boleh dipakai oleh user ini:</div>
+            <div id="edit-user-devices-checkboxes" style="background:var(--bg-surface-secondary); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0.75rem; max-height:160px; overflow-y:auto;">
+              <!-- Filled dynamically -->
+            </div>
+          </div>
+          <div class="modal-footer" style="margin:1.5rem -1.5rem -1.5rem -1.5rem; justify-content:space-between;">
+            <button type="button" class="btn-secondary" style="color:var(--danger); border-color:var(--danger-border);" onclick="confirmDeleteUser()">Hapus Pengguna...</button>
+            <div style="display:flex; gap:0.5rem;">
+              <button type="button" class="btn-secondary" onclick="closeModal('modal-edit-user')">Batal</button>
+              <button type="submit" class="btn-primary">Simpan Perubahan</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="/static/qrcode.min.js?v=3"></script>
+  <script src="/static/app.js?v=3"></script>
+</body>
+</html>
