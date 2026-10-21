@@ -849,6 +849,7 @@ func (s *Server) handleBypass(w http.ResponseWriter, r *http.Request) {
 			WstunnelEnabled *bool  `json:"wstunnelEnabled"`
 			WstunnelPort    int    `json:"wstunnelPort"`
 			WstunnelPrefix  string `json:"wstunnelPrefix"`
+			WstunnelQUIC    *bool  `json:"wstunnelQuic"`
 			Udp2rawEnabled  *bool  `json:"udp2rawEnabled"`
 			Udp2rawPort     int    `json:"udp2rawPort"`
 			Udp2rawPassword string `json:"udp2rawPassword"`
@@ -862,12 +863,16 @@ func (s *Server) handleBypass(w http.ResponseWriter, r *http.Request) {
 		if payload.WstunnelEnabled != nil {
 			wsEnabled = *payload.WstunnelEnabled
 		}
+		wsQuic := s.cfg.WstunnelQUIC
+		if payload.WstunnelQUIC != nil {
+			wsQuic = *payload.WstunnelQUIC
+		}
 		u2rEnabled := s.cfg.Udp2rawEnabled
 		if payload.Udp2rawEnabled != nil {
 			u2rEnabled = *payload.Udp2rawEnabled
 		}
 
-		if err := s.cfg.UpdateBypass(wsEnabled, payload.WstunnelPort, payload.WstunnelPrefix, u2rEnabled, payload.Udp2rawPort, payload.Udp2rawPassword); err != nil {
+		if err := s.cfg.UpdateBypass(wsEnabled, payload.WstunnelPort, payload.WstunnelPrefix, wsQuic, u2rEnabled, payload.Udp2rawPort, payload.Udp2rawPassword); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}

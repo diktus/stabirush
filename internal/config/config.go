@@ -22,10 +22,11 @@ type AppConfig struct {
 	AuthUsername     string `json:"authUsername"`
 	AuthPassword     string `json:"authPassword"`
 
-	// TCP Bypass Settings (wstunnel & udp2raw)
+	// TCP & QUIC Bypass Settings (wstunnel & udp2raw)
 	WstunnelEnabled bool   `json:"wstunnelEnabled"`
 	WstunnelPort    int    `json:"wstunnelPort"`
 	WstunnelPrefix  string `json:"wstunnelPrefix"`
+	WstunnelQUIC    bool   `json:"wstunnelQuic"`
 	Udp2rawEnabled  bool   `json:"udp2rawEnabled"`
 	Udp2rawPort     int    `json:"udp2rawPort"`
 	Udp2rawPassword string `json:"udp2rawPassword"`
@@ -55,6 +56,7 @@ func LoadConfig(dataDir string) (*AppConfig, error) {
 		WstunnelEnabled:  true,
 		WstunnelPort:     8443,
 		WstunnelPrefix:   "stabirush",
+		WstunnelQUIC:     true,
 		Udp2rawEnabled:   true,
 		Udp2rawPort:      4096,
 		Udp2rawPassword:  "stabirush-raw-secret",
@@ -136,8 +138,8 @@ func (c *AppConfig) Update(endpoint, dns, mtu, tailnet string, keepalive int, au
 	return c.Save()
 }
 
-// UpdateBypass updates TCP bypass configuration
-func (c *AppConfig) UpdateBypass(wsEnabled bool, wsPort int, wsPrefix string, udpEnabled bool, udpPort int, udpPass string) error {
+// UpdateBypass updates TCP & QUIC bypass configuration
+func (c *AppConfig) UpdateBypass(wsEnabled bool, wsPort int, wsPrefix string, wsQuic bool, udpEnabled bool, udpPort int, udpPass string) error {
 	c.mu.Lock()
 	c.WstunnelEnabled = wsEnabled
 	if wsPort > 0 {
@@ -146,6 +148,7 @@ func (c *AppConfig) UpdateBypass(wsEnabled bool, wsPort int, wsPrefix string, ud
 	if wsPrefix != "" {
 		c.WstunnelPrefix = wsPrefix
 	}
+	c.WstunnelQUIC = wsQuic
 	c.Udp2rawEnabled = udpEnabled
 	if udpPort > 0 {
 		c.Udp2rawPort = udpPort

@@ -557,7 +557,7 @@ func normalizeRoutingMode(mode string) string {
 
 func normalizeTransportMode(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "wstunnel", "udp2raw", "auto":
+	case "wstunnel", "wstunnel_quic", "udp2raw", "auto":
 		return strings.ToLower(strings.TrimSpace(mode))
 	default:
 		return "udp"
@@ -1096,17 +1096,23 @@ func (m *Manager) GetDeviceConfigWithSubnets(pubKey, routingMode, transportMode 
 	mtu := m.cfg.DefaultMTU
 	var hookLines string
 
-	if tMode == "wstunnel" {
+	if tMode == "wstunnel" || tMode == "wstunnel_quic" {
 		endpoint = "127.0.0.1:51820"
 		mtu = "1280"
 		wsPort := m.cfg.WstunnelPort
 		wsPrefix := m.cfg.WstunnelPrefix
-		modeComment += fmt.Sprintf("# Transport: TCP Bypass via wstunnel (wss://%s:%d /%s -> wg0)\n", serverHost, wsPort, wsPrefix)
+		scheme := "wss"
+		label := "TCP Bypass via wstunnel (wss://)"
+		if tMode == "wstunnel_quic" {
+			scheme = "wts"
+			label = "QUIC / WebTransport Bypass via wstunnel (wts://)"
+		}
+		modeComment += fmt.Sprintf("# Transport: %s (%s://%s:%d /%s -> wg0)\n", label, scheme, serverHost, wsPort, wsPrefix)
 		hookLines = fmt.Sprintf(`Table = off
-PreUp = gw=$(ip route show default 2>/dev/null | awk '{print $3; exit}'); [ -n "$gw" ] && ip route replace %s/32 via "$gw" || true; nohup wstunnel client -L "udp://127.0.0.1:51820:127.0.0.1:51820?timeout_sec=0" wss://%s:%d --http-upgrade-path-prefix %s >/tmp/stabirush-wstunnel.log 2>&1 & sleep 1
+PreUp = gw=$(ip route show default 2>/dev/null | awk '{print $3; exit}'); [ -n "$gw" ] && ip route replace %s/32 via "$gw" || true; nohup wstunnel client -L "udp://127.0.0.1:51820:127.0.0.1:51820?timeout_sec=0" %s://%s:%d --http-upgrade-path-prefix %s >/tmp/stabirush-wstunnel.log 2>&1 & sleep 1
 PostUp = ip route replace 10.10.0.0/24 dev %%i; %s
 PostDown = pkill -f "wstunnel client.*%s:%d" || true; ip route del %s/32 2>/dev/null || true
-`, serverHost, serverHost, wsPort, wsPrefix, buildPostUpRouteCmd(rMode, clientAllowedIPs), serverHost, wsPort, serverHost)
+`, serverHost, scheme, serverHost, wsPort, wsPrefix, buildPostUpRouteCmd(rMode, clientAllowedIPs), serverHost, wsPort, serverHost)
 	} else if tMode == "udp2raw" {
 		endpoint = "127.0.0.1:51820"
 		mtu = "1280"

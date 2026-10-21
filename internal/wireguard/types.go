@@ -93,7 +93,9 @@ type BypassStatus struct {
 	WstunnelPID     int    `json:"wstunnelPid"`
 	WstunnelPort    int    `json:"wstunnelPort"`
 	WstunnelPrefix  string `json:"wstunnelPrefix"`
+	WstunnelQUIC    bool   `json:"wstunnelQuic"`
 	WstunnelURL     string `json:"wstunnelUrl"`
+	WstunnelQuicURL string `json:"wstunnelQuicUrl"`
 	Udp2rawEnabled  bool   `json:"udp2rawEnabled"`
 	Udp2rawRunning  bool   `json:"udp2rawRunning"`
 	Udp2rawPID      int    `json:"udp2rawPid"`

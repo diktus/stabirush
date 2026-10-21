@@ -46,10 +46,15 @@ func (m *Manager) EnsureBypassServices() {
 			_ = exec.Command("pkill", "-f", "wstunnel server").Run()
 			ensureTCPPortAllowed(wsPort)
 			listenAddr := fmt.Sprintf("wss://0.0.0.0:%d", wsPort)
-			cmd := exec.Command("/usr/local/bin/wstunnel", "server", listenAddr,
+			args := []string{"server", listenAddr,
 				"--restrict-to", "127.0.0.1:51820",
 				"--restrict-http-upgrade-path-prefix", wsPrefix,
-			)
+			}
+			if m.cfg.WstunnelQUIC {
+				args = append(args, "--enable-webtransport")
+				ensureUDPPortAllowed(wsPort)
+			}
+			cmd := exec.Command("/usr/local/bin/wstunnel", args...)
 			if err := cmd.Start(); err == nil {
 				wstunnelCmd = cmd
 				go func(c *exec.Cmd) {
@@ -131,6 +136,14 @@ func ensureTCPPortAllowed(port int) {
 	}
 }
 
+func ensureUDPPortAllowed(port int) {
+	pStr := strconv.Itoa(port)
+	check := exec.Command("iptables", "-C", "INPUT", "-p", "udp", "--dport", pStr, "-j", "ACCEPT")
+	if err := check.Run(); err != nil {
+		_ = exec.Command("iptables", "-I", "INPUT", "-p", "udp", "--dport", pStr, "-j", "ACCEPT").Run()
+	}
+}
+
 // GetBypassStatus returns current status of wstunnel & udp2raw daemons
 func (m *Manager) GetBypassStatus() BypassStatus {
 	bypassMu.Lock()
@@ -150,13 +163,20 @@ func (m *Manager) GetBypassStatus() BypassStatus {
 		udpPID = udp2rawCmd.Process.Pid
 	}
 
+	quicUrl := ""
+	if m.cfg.WstunnelQUIC {
+		quicUrl = fmt.Sprintf("wts://%s:%d (prefix: /%s)", serverHost, m.cfg.WstunnelPort, m.cfg.WstunnelPrefix)
+	}
+
 	return BypassStatus{
 		WstunnelEnabled: m.cfg.WstunnelEnabled,
 		WstunnelRunning: wsRunning,
 		WstunnelPID:     wsPID,
 		WstunnelPort:    m.cfg.WstunnelPort,
 		WstunnelPrefix:  m.cfg.WstunnelPrefix,
+		WstunnelQUIC:    m.cfg.WstunnelQUIC,
 		WstunnelURL:     fmt.Sprintf("wss://%s:%d (prefix: /%s)", serverHost, m.cfg.WstunnelPort, m.cfg.WstunnelPrefix),
+		WstunnelQuicURL: quicUrl,
 		Udp2rawEnabled:  m.cfg.Udp2rawEnabled,
 		Udp2rawRunning:  udpRunning,
 		Udp2rawPID:      udpPID,

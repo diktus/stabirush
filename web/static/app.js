@@ -509,7 +509,7 @@ function updateSetupModalPills() {
     mSecure.classList.toggle('active', state.viewingMode === 'secure');
   }
 
-  ['udp', 'wstunnel', 'udp2raw'].forEach(t => {
+  ['udp', 'wstunnel', 'wstunnel_quic', 'udp2raw'].forEach(t => {
     const el = document.getElementById(`setup-trans-${t}`);
     if (el) el.classList.toggle('active', state.viewingTransport === t);
   });
@@ -753,8 +753,9 @@ async function loadBypassStatus() {
     const wsStatus = document.getElementById('bypass-ws-status');
     const wsPid = document.getElementById('bypass-ws-pid');
     if (wsStatus) {
+      let qInfo = b.wstunnelQuic ? ` <span class="badge-tag" style="background:#0369a1;color:#fff;">QUIC / wts://</span>` : '';
       wsStatus.innerHTML = b.wstunnelRunning
-        ? `<span style="color:var(--status-connected);font-weight:600;">● Running</span> · <code>${escapeHtml(b.wstunnelUrl)}</code>`
+        ? `<span style="color:var(--status-connected);font-weight:600;">● Running</span> · <code>${escapeHtml(b.wstunnelUrl)}</code>${qInfo}`
         : `<span style="color:var(--danger);">○ Stopped</span>`;
     }
     if (wsPid) {
@@ -775,6 +776,8 @@ async function loadBypassStatus() {
     document.getElementById('cfg-ws-enabled').checked = Boolean(b.wstunnelEnabled);
     document.getElementById('cfg-ws-port').value = b.wstunnelPort || 8443;
     document.getElementById('cfg-ws-prefix').value = b.wstunnelPrefix || 'stabirush';
+    const wsQuicEl = document.getElementById('cfg-ws-quic');
+    if (wsQuicEl) wsQuicEl.checked = Boolean(b.wstunnelQuic);
 
     document.getElementById('cfg-u2r-enabled').checked = Boolean(b.udp2rawEnabled);
     document.getElementById('cfg-u2r-port').value = b.udp2rawPort || 4096;
@@ -789,6 +792,7 @@ async function saveBypassSettings(e) {
   const wstunnelEnabled = document.getElementById('cfg-ws-enabled').checked;
   const wstunnelPort = parseInt(document.getElementById('cfg-ws-port').value, 10) || 8443;
   const wstunnelPrefix = document.getElementById('cfg-ws-prefix').value.trim() || 'stabirush';
+  const wstunnelQuic = document.getElementById('cfg-ws-quic') ? document.getElementById('cfg-ws-quic').checked : true;
   const udp2rawEnabled = document.getElementById('cfg-u2r-enabled').checked;
   const udp2rawPort = parseInt(document.getElementById('cfg-u2r-port').value, 10) || 4096;
   const udp2rawPassword = document.getElementById('cfg-u2r-pass').value.trim() || 'stabirush-raw-secret';
@@ -802,16 +806,17 @@ async function saveBypassSettings(e) {
         wstunnelEnabled,
         wstunnelPort,
         wstunnelPrefix,
+        wstunnelQuic,
         udp2rawEnabled,
         udp2rawPort,
         udp2rawPassword,
       })
     });
-    if (!res.ok) throw new Error('Failed to save TCP bypass settings');
+    if (!res.ok) throw new Error('Failed to save TCP/QUIC bypass settings');
     await loadBypassStatus();
     await fetchStatus();
     updateStats();
-    showToast('TCP Bypass (wstunnel & udp2raw) updated and restarted!', 'success');
+    showToast('Bypass (wstunnel QUIC & udp2raw) updated and restarted!', 'success');
   } catch (err) {
     showToast(`Error: ${err.message}`, 'error');
   }

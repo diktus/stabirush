@@ -186,7 +186,7 @@
 
         <div class="info-grid" style="margin-bottom:1.5rem;">
           <div class="info-item">
-            <label>wstunnel Server (WebSocket over TLS/TCP)</label>
+            <label>wstunnel Server (WebSocket over TLS & QUIC WebTransport)</label>
             <div class="info-val">
               <span id="bypass-ws-status">Checking...</span>
               <span class="badge-tag badge-subnet" id="bypass-ws-pid">PID -</span>
@@ -221,9 +221,14 @@
                 <label class="form-label">TCP / TLS Listen Port</label>
                 <input type="number" id="cfg-ws-port" class="form-input" value="8443" required>
               </div>
-              <div class="form-group" style="margin-bottom:0;">
+              <div class="form-group" style="margin-bottom:0.6rem;">
                 <label class="form-label">HTTP Upgrade Secret Path Prefix</label>
                 <input type="text" id="cfg-ws-prefix" class="form-input" value="stabirush" required>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; cursor:pointer;">
+                  <input type="checkbox" id="cfg-ws-quic" checked> Aktifkan HTTP/3 over QUIC (WebTransport <code>wts://</code>)
+                </label>
               </div>
             </div>
 
@@ -757,9 +762,10 @@
           </div>
           <div>
             <label class="form-label" style="font-size:0.72rem; margin-bottom:0.3rem;">2. Transport / Bypass Blokir UDP</label>
-            <div class="filter-pills" style="width:100%; display:grid; grid-template-columns:1fr 1fr 1fr;">
+            <div class="filter-pills" style="width:100%; display:grid; grid-template-columns:repeat(4, 1fr);">
               <button type="button" class="filter-pill active" id="setup-trans-udp" onclick="switchSetupProfile(null, 'udp')">UDP</button>
               <button type="button" class="filter-pill" id="setup-trans-wstunnel" onclick="switchSetupProfile(null, 'wstunnel')">⚡ wstunnel</button>
+              <button type="button" class="filter-pill" id="setup-trans-wstunnel_quic" onclick="switchSetupProfile(null, 'wstunnel_quic')">🚀 QUIC</button>
               <button type="button" class="filter-pill" id="setup-trans-udp2raw" onclick="switchSetupProfile(null, 'udp2raw')">⚡ udp2raw</button>
             </div>
           </div>
