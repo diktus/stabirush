@@ -148,13 +148,16 @@ class WifiRulesActivity : Activity() {
             letterSpacing = 0.08f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        val btnAdd = Button(this).apply {
+        val btnAdd = TextView(this).apply {
             text = "+ Add Rule"
-            setAllCaps(false)
             setTextColor(Color.parseColor("#10B981"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
             background = roundedRect(Color.parseColor("#062B28"), dp(8), Color.parseColor("#10B981"))
-            layoutParams = LinearLayout.LayoutParams(dp(110), dp(34))
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            isClickable = true
+            isFocusable = true
             setOnClickListener { showAddDialog() }
         }
         rulesHeaderRow.addView(labelRules)
@@ -234,13 +237,16 @@ class WifiRulesActivity : Activity() {
             infoCol.addView(modeTv)
             card.addView(infoCol)
 
-            val btnDel = Button(this).apply {
+            val btnDel = TextView(this).apply {
                 text = "Delete"
-                setAllCaps(false)
                 setTextColor(Color.parseColor("#EF4444"))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
                 background = roundedRect(Color.parseColor("#271216"), dp(6), Color.parseColor("#EF4444"))
-                layoutParams = LinearLayout.LayoutParams(dp(70), dp(30))
+                setPadding(dp(14), dp(6), dp(14), dp(6))
+                isClickable = true
+                isFocusable = true
                 setOnClickListener {
                     wifiRules.removeAt(idx)
                     saveData()

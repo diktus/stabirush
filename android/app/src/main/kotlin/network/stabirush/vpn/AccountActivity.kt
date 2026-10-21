@@ -115,13 +115,17 @@ class AccountActivity : Activity() {
         tvIpVal = addInfoRow(card, "VIRTUAL WIREGUARD IP", assignedIp)
         tvServerVal = addInfoRow(card, "GATEWAY HOST", serverHost)
 
-        val btnEditServer = Button(this).apply {
+        val btnEditServer = TextView(this).apply {
             text = "Edit Gateway Host"
-            setAllCaps(false)
             setTextColor(Color.parseColor("#38BDF8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
             background = roundedRect(Color.parseColor("#1E293B"), dp(6), Color.parseColor("#38BDF8"))
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32)).apply { topMargin = dp(8) }
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+            isClickable = true
+            isFocusable = true
             setOnClickListener { showEditServerDialog() }
         }
         card.addView(btnEditServer)

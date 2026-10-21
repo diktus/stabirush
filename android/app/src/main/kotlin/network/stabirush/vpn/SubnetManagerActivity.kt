@@ -128,13 +128,16 @@ class SubnetManagerActivity : Activity() {
             letterSpacing = 0.08f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        val btnAdd = Button(this).apply {
+        val btnAdd = TextView(this).apply {
             text = "+ Add CIDR"
-            setAllCaps(false)
             setTextColor(Color.parseColor("#10B981"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
             background = roundedRect(Color.parseColor("#062B28"), dp(8), Color.parseColor("#10B981"))
-            layoutParams = LinearLayout.LayoutParams(dp(110), dp(34))
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            isClickable = true
+            isFocusable = true
             setOnClickListener { showAddSubnetDialog() }
         }
         actRow.addView(labelSubnets)

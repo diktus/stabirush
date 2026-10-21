@@ -178,22 +178,30 @@ class LogsActivity : Activity() {
             setBackgroundColor(Color.parseColor("#0B101C"))
         }
 
-        val btnCopy = Button(this).apply {
+        val btnCopy = TextView(this).apply {
             text = "Copy to Clipboard"
-            setAllCaps(false)
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            includeFontPadding = false
             background = roundedRect(Color.parseColor("#1E293B"), dp(8), Color.parseColor("#334155"))
-            layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f).apply { marginEnd = dp(6) }
+            layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginEnd = dp(6) }
+            isClickable = true
+            isFocusable = true
             setOnClickListener { copyLogsToClipboard() }
         }
-        val btnShare = Button(this).apply {
+        val btnShare = TextView(this).apply {
             text = "Share / Export"
-            setAllCaps(false)
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            includeFontPadding = false
             background = roundedRect(Color.parseColor("#0284C7"), dp(8), Color.parseColor("#38BDF8"))
-            layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f).apply { marginStart = dp(6) }
+            layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginStart = dp(6) }
+            isClickable = true
+            isFocusable = true
             setOnClickListener { exportLogs() }
         }
 
@@ -205,19 +213,23 @@ class LogsActivity : Activity() {
         renderLogs()
     }
 
-    private fun createFilterPill(label: String, selected: Boolean, onClick: () -> Unit): Button {
-        return Button(this).apply {
+    private fun createFilterPill(label: String, selected: Boolean, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
             text = label
-            setAllCaps(false)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            includeFontPadding = false
             val bg = if (selected) Color.parseColor("#0284C7") else Color.parseColor("#111827")
             val stroke = if (selected) Color.parseColor("#38BDF8") else Color.parseColor("#1F2937")
             setTextColor(if (selected) Color.WHITE else Color.parseColor("#94A3B8"))
             background = roundedRect(bg, dp(14), stroke)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(30)).apply {
+            setPadding(dp(14), dp(7), dp(14), dp(7))
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 marginEnd = dp(8)
             }
+            isClickable = true
+            isFocusable = true
             setOnClickListener {
                 onClick()
                 buildUI()

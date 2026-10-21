@@ -682,11 +682,11 @@ class MainActivity : ComponentActivity() {
                                     letterSpacing = 1.3.sp
                                 )
                                 Text(
-                                    text = "FAST VPN CONNECTION",
+                                    text = "SECURE MESH VPN",
                                     color = Color(0xFF0EA5E9),
-                                    fontSize = 8.sp,
+                                    fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.1.sp
+                                    letterSpacing = 1.2.sp
                                 )
                             }
                         }
